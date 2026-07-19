@@ -18,7 +18,7 @@ jishudeveloper = madflixofficials
 file_auto_delete = humanize.naturaldelta(jishudeveloper)
 
 WLCM = """
-✨ʜᴇʟʟᴏ... {first} I am Vexper <a href=https://graph.org/file/2a159572f780916b5d806-eb17c7aa3287170859.jpg >🦋</a>
+Hey! {first} I am Physicsaholics Bot <a href=https://i.ibb.co/vCJrx4PN/x.jpg >.</a>
 """
 
 
@@ -106,7 +106,7 @@ async def start_command(client: Client, message: Message):
         reply_markup = InlineKeyboardMarkup(
             [
     [
-        InlineKeyboardButton(text="Start App", url="https://physicsaholics.vercel.app/"),
+        InlineKeyboardButton(text="Start App", url="https://t.me/Physicsaholics_bot?startapp=start"),
         
     ],           
     [
