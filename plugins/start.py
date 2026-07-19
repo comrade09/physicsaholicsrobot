@@ -106,15 +106,12 @@ async def start_command(client: Client, message: Message):
         reply_markup = InlineKeyboardMarkup(
             [
     [
-        InlineKeyboardButton(text="Acess Contents", callback_data="help_cb")
-    ],
-    [
-        InlineKeyboardButton(text="About Me 📓", callback_data="neet_countdown"),
+        InlineKeyboardButton(text="Start App", url="https://physicsaholics.vercel.app/"),
         
     ],           
     [
-        InlineKeyboardButton(text="Support ✨", url=f"https://t.me/vexper_network"),
-        InlineKeyboardButton(text="Updates 📡 ", url=f"https://t.me/vexper_network"),
+        InlineKeyboardButton(text="Support ✨", url=f"https://t.me/voltaic_network"),
+        InlineKeyboardButton(text="Updates 📡 ", url=f"https://t.me/voltaic_network"),
     ],
 ]
         )
