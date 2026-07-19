@@ -10,7 +10,7 @@ from config import OWNER_ID,BOT_USERNM
 from pyrogram.enums import ParseMode
 
 
-@Bot.on_message(filters.command('help') & filters.private & subscribed, group=234)
+@Bot.on_message(filters.command('hessslp') & filters.private & subscribed, group=234)
 async def help(bot: Bot, message: Message):
  buttons = [
         [
