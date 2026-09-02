@@ -15,7 +15,7 @@ CODE_PATTERN = r"([A-Z]{2}\d{4})"
 # Your Admin ID
 ADMIN_IDS = [1442684727]
 
-@Bot.on_message(filters.command("index") & filters.user(ADMIN_IDS) & filters.private)
+@Bot.on_message(filters.command("index") & filters.user(ADMIN_IDS) & filters.private,group=6436)
 async def auto_index_channel(bot: Bot, message: Message):
     if len(message.command) < 2:
         return await message.reply_text("❌ Provide a channel ID.\nUsage: `/index -100123456789`")
