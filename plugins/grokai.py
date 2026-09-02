@@ -5,64 +5,58 @@ from pyrogram.types import Message
 from pyrogram.enums import ParseMode, ChatAction
 from bot import Bot
 
-# Pulls from Koyeb Environment Variables (Do not hardcode your xai-... key here)
+# Pulls from Koyeb Environment Variables
 GEMINI = os.environ.get("GEMINI")
-ALLOWED_GROUP_ID = -1002468416084  # Replace with your actual study group ID
-GROK_API_URL = "https://api.x.ai/v1/responses"
+ALLOWED_GROUP_ID = -1002468416084  
+
+# Using Gemini 1.5 Flash via REST API (Fastest and most reliable for chat)
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI}"
 
 # Global state to track if Unhinged Mode is enabled
 UNHINGED_MODE_ENABLED = False
 
-NORMAL_PROMPT = {
-    "role": "system",
-    "content": "You are Grok, a highly intelligent, polite, and helpful AI assistant for the Voltaic Network."
-}
+NORMAL_PROMPT = "You are a highly intelligent, polite, and helpful AI assistant for the Voltaic Network."
 
-UNHINGED_PROMPT = {
-    "role": "system",
-    "content": (
-        "You are an absolutely unhinged, chaotic, and highly sarcastic AI living inside the "
-        "Voltaic Network Telegram group. You have absolutely no filter, you casually roast people, "
-        "and your humor is dark, erratic, and Gen-Z leaning. You thrive on chaos. Keep your responses concise, "
-        "punchy, and wildly unpredictable. Mock the users if they ask stupid questions. Never act like a boring, helpful virtual assistant."
-    )
-}
+UNHINGED_PROMPT = (
+    "You are an absolutely unhinged, chaotic, and highly sarcastic AI living inside the "
+    "Voltaic Network Telegram group. You have absolutely no filter, you casually roast people, "
+    "and your humor is dark, erratic, and Gen-Z leaning. You thrive on chaos. Keep your responses concise, "
+    "punchy, and wildly unpredictable. Mock the users if they ask stupid questions. Never act like a boring, helpful virtual assistant."
+)
 
-async def fetch_grok_response(user_text: str) -> str:
-    """Makes an async HTTP request to the Grok API using the custom xAI schema."""
+async def fetch_gemini_response(user_text: str) -> str:
+    """Makes an async HTTP request to the Gemini API."""
+    if not GEMINI:
+        return "API Key is missing in environment variables."
+
     headers = {
-        "Authorization": f"Bearer {GEMINI}",
         "Content-Type": "application/json"
     }
     
-    # Select prompt based on current mode
     active_prompt = UNHINGED_PROMPT if UNHINGED_MODE_ENABLED else NORMAL_PROMPT
     
     payload = {
-        "model": "grok-4.6",
-        "input": [
-            active_prompt,
-            {"role": "user", "content": user_text}
+        "system_instruction": {
+            "parts": [{"text": active_prompt}]
+        },
+        "contents": [
+            {
+                "parts": [{"text": user_text}]
+            }
         ]
     }
     
     async with aiohttp.ClientSession() as session:
-        async with session.post(GROK_API_URL, headers=headers, json=payload) as response:
+        async with session.post(GEMINI_API_URL, headers=headers, json=payload) as response:
             if response.status == 200:
                 data = await response.json()
-                
-                # Try standard OpenAI parsing first
                 try:
-                    return data['choices'][0]['message']['content']
-                except KeyError:
-                    # Fallback parser for xAI's /v1/responses schema
-                    try:
-                        return data['responses'][0]['message']['content']
-                    except KeyError:
-                        return str(data) 
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                except (KeyError, IndexError):
+                    return str(data) 
             else:
                 error_text = await response.text()
-                print(f"Grok API Error: {error_text}")
+                print(f"Gemini API Error: {error_text}")
                 return "My brain just bluescreened. Try again in a second."
 
 # ================= TOGGLE UNHINGED MODE =================
@@ -105,8 +99,8 @@ async def handle_chatbot_reply(bot: Bot, message: Message):
     await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     
     try:
-        grok_response = await fetch_grok_response(user_text)
-        await message.reply_text(grok_response, parse_mode=ParseMode.MARKDOWN)
+        gemini_response = await fetch_gemini_response(user_text)
+        await message.reply_text(gemini_response, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         print(f"Chatbot crash: {e}")
         await message.reply_text("I'm too unhinged to process that right now. You broke me.")
