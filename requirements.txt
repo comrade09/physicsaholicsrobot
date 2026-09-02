@@ -5,15 +5,25 @@ Pyromod==1.5
 # --- For-Database ------------ #
 pymongo
 dnspython
+cloudscraper
 # --- For-Web-Response ------- #
 aiohttp
 pytz
+curl_cffi
 humanize
+requests
 telethon
 pyrofork
 TgCrypto
+webdriver-manager
 humanize
 motor
 dnspython
 google-genai
 openai
+selenium
+webdriver-manager
+Flask
+PyMuPDF
+pytesseract
+Pillow
