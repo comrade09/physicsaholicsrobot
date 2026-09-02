@@ -9,8 +9,8 @@ from bot import Bot
 GEMINI = os.environ.get("GEMINI")
 ALLOWED_GROUP_ID = -1002468416084  
 
-# Using Gemini 1.5 Flash via REST API (Fastest and most reliable for chat)
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI}"
+# Using the latest Gemini 3.7 Flash model via REST API
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key={GEMINI}"
 
 # Global state to track if Unhinged Mode is enabled
 UNHINGED_MODE_ENABLED = False
