@@ -9,9 +9,6 @@ from bot import Bot
 GEMINI = os.environ.get("GEMINI")
 ALLOWED_GROUP_ID = -1002468416084  
 
-# Using the latest Gemini 3.7 Flash model via REST API
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key={GEMINI}"
-
 # Global state to track if Unhinged Mode is enabled
 UNHINGED_MODE_ENABLED = False
 
@@ -25,7 +22,7 @@ UNHINGED_PROMPT = (
 )
 
 async def fetch_gemini_response(user_text: str) -> str:
-    """Makes an async HTTP request to the Gemini API."""
+    """Makes an async HTTP request to the Gemini API with a robust model fallback chain."""
     if not GEMINI:
         return "API Key is missing in environment variables."
 
@@ -46,18 +43,37 @@ async def fetch_gemini_response(user_text: str) -> str:
         ]
     }
     
+    # 3.7 is entirely removed. The bot cascades through all other available Flash models until one answers.
+    models_to_try = [
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-1.5-flash"
+    ]
+    
     async with aiohttp.ClientSession() as session:
-        async with session.post(GEMINI_API_URL, headers=headers, json=payload) as response:
-            if response.status == 200:
-                data = await response.json()
-                try:
-                    return data['candidates'][0]['content']['parts'][0]['text']
-                except (KeyError, IndexError):
-                    return str(data) 
-            else:
-                error_text = await response.text()
-                print(f"Gemini API Error: {error_text}")
-                return "My brain just bluescreened. Try again in a second."
+        for model in models_to_try:
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI}"
+            
+            async with session.post(api_url, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    try:
+                        return data['candidates'][0]['content']['parts'][0]['text']
+                    except (KeyError, IndexError):
+                        return str(data) 
+                
+                elif response.status == 503:
+                    print(f"⚠️ {model} is experiencing high demand. Seamlessly swapping to next backup...")
+                    continue # Skips to the next model in the list
+                
+                else:
+                    error_text = await response.text()
+                    print(f"Gemini API Error ({model}): {error_text}")
+                    return f"My brain just bluescreened on {model}. Try again in a second."
+                    
+        # If ALL models in the list are somehow overloaded
+        return "All AI models are currently overwhelmed by high demand. Try again in a few minutes."
 
 # ================= TOGGLE UNHINGED MODE =================
 @Bot.on_message(filters.command(["unhinged"]) & filters.chat(ALLOWED_GROUP_ID), group=4520)
