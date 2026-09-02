@@ -106,7 +106,7 @@ async def start_command(client: Client, message: Message):
         reply_markup = InlineKeyboardMarkup(
             [
     [
-        InlineKeyboardButton(text="Start App", url="https://t.me/Physicsaholics_bot?startapp=start"),
+        InlineKeyboardButton(text="Menu", callback_data= "help_cb"),
         
     ],           
     [
