@@ -23,8 +23,7 @@ async def stats(bot: Bot, message: Message):
 
 
 
-
-@Bot.on_message(filters.private & filters.incoming & ~filters.command(['lecture','solution','help','notes','ask','binging','chat']))
+@Bot.on_message(filters.private & filters.incoming & ~filters.command(['lecture', 'solution', 'help', 'notes', 'ask', 'binging', 'chat', 'search', 'info', 'stats', 'del', 'delete']))
 async def useless(_,message: Message):
     user = message.from_user
     asia_kolkata = pytz.timezone('Asia/Kolkata')
