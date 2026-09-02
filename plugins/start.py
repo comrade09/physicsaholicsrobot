@@ -18,7 +18,7 @@ jishudeveloper = madflixofficials
 file_auto_delete = humanize.naturaldelta(jishudeveloper)
 
 WLCM = """
-Hey! {first} I am Physicsaholics Bot <a href=https://i.ibb.co/vCJrx4PN/x.jpg >.</a>
+Hey! {first} I am Lexica <a href=https://i.ibb.co/vCJrx4PN/x.jpg >.</a>
 """
 
 
