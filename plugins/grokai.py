@@ -6,7 +6,7 @@ from pyrogram.enums import ParseMode, ChatAction
 from bot import Bot
 
 # Pulls from Koyeb Environment Variables (Do not hardcode your xai-... key here)
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI = os.environ.get("GEMINI")
 ALLOWED_GROUP_ID = -1002468416084  # Replace with your actual study group ID
 GROK_API_URL = "https://api.x.ai/v1/responses"
 
@@ -31,7 +31,7 @@ UNHINGED_PROMPT = {
 async def fetch_grok_response(user_text: str) -> str:
     """Makes an async HTTP request to the Grok API using the custom xAI schema."""
     headers = {
-        "Authorization": f"Bearer {GEMINI_API_KEY}",
+        "Authorization": f"Bearer {GEMINI}",
         "Content-Type": "application/json"
     }
     
