@@ -1,4 +1,3 @@
-
 import time
 import hmac
 import hashlib
@@ -12,12 +11,22 @@ from pyrogram.errors import FloodWait
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
 DUMP_CHANNEL_ID = -1004478362115
 
+CHUNK_SIZE = 1024 * 1024  # Pyrogram's internal streaming chunk size (1MB)
+
+
 class StreamServer:
     def __init__(self, bot):
-        self.bot = bot 
+        self.bot = bot
         self.app = web.Application()
+        self.app.router.add_get('/', self.health_handler)
         self.app.router.add_get('/watch', self.html_player_handler)
         self.app.router.add_get('/stream', self.stream_handler)
+
+    # ==========================================
+    # 0. HEALTH CHECK (for uptime pingers)
+    # ==========================================
+    async def health_handler(self, request):
+        return web.Response(text="OK", status=200)
 
     # ==========================================
     # 1. HTML WEB PLAYER (Sci-Fi / Neon UI)
@@ -217,19 +226,17 @@ class StreamServer:
 
         if start >= file_size:
             return web.Response(status=416, headers={"Content-Range": f"bytes */{file_size}"})
-            
+
         if end >= file_size:
             end = file_size - 1
 
         length = end - start + 1
 
-        # --- THE FIX: STRICT 4096 BYTE ALIGNMENT ---
-        ALIGNMENT = 4096  # Telegram's strict 4 KB API requirement
-        aligned_offset = start - (start % ALIGNMENT)
-        first_part_cut = start - aligned_offset
-        
-        # We must pass Pyrogram an aligned limit as well, based on the bytes we cut
-        aligned_limit = length + first_part_cut
+        # --- Chunk math: offset/limit passed to Pyrogram are CHUNK units, not bytes ---
+        offset = start - (start % CHUNK_SIZE)             # byte offset of the chunk containing `start`
+        first_part_cut = start - offset                    # bytes to trim off the first returned chunk
+        last_part_cut = (end % CHUNK_SIZE) + 1              # bytes to keep from the last returned chunk
+        part_count = ((end // CHUNK_SIZE) - (offset // CHUNK_SIZE)) + 1  # number of 1MB chunks needed
 
         headers = {
             "Content-Type": mime_type,
@@ -242,35 +249,34 @@ class StreamServer:
         response = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await response.prepare(request)
 
-        bytes_sent = 0
+        current_part = 1
 
         try:
-            # We explicitly pass the properly aligned offset AND limit back into Pyrogram
-            async for chunk in self.bot.stream_media(msg, offset=aligned_offset, limit=aligned_limit):
-                if first_part_cut > 0:
+            # offset here is a CHUNK INDEX (offset // CHUNK_SIZE), limit is a CHUNK COUNT
+            async for chunk in self.bot.stream_media(
+                msg,
+                offset=offset // CHUNK_SIZE,
+                limit=part_count
+            ):
+                if part_count == 1:
+                    chunk = chunk[first_part_cut:last_part_cut]
+                elif current_part == 1:
                     chunk = chunk[first_part_cut:]
-                    first_part_cut = 0
-                
-                chunk_length = len(chunk)
-                
-                if bytes_sent + chunk_length > length:
-                    needed_bytes = length - bytes_sent
-                    chunk = chunk[:needed_bytes]
-                    
+                elif current_part == part_count:
+                    chunk = chunk[:last_part_cut]
+
                 await response.write(chunk)
-                bytes_sent += len(chunk)
-                
-                if bytes_sent >= length:
-                    break
-                    
+                current_part += 1
+
         except (ConnectionResetError, web.HTTPProcessingError):
-            pass # Standard behavior when a user scrubs the video timeline
+            pass  # Standard behavior when a user scrubs the video timeline
         except FloodWait as e:
             print(f"Stream interrupted by FloodWait: {e}")
         except Exception as e:
             print(f"Streaming error: {e}")
 
         return response
+
 
 # ==========================================
 # 3. EXPORT TO BOT.PY
