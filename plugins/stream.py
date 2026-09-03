@@ -9,7 +9,7 @@ from pyrogram.errors import FloodWait
 
 # --- CONFIGURATION ---
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
-DUMP_CHANNEL_ID = -1003946902565
+DUMP_CHANNEL_ID = -1004478362115
 
 class StreamServer:
     def __init__(self, bot):
@@ -19,7 +19,7 @@ class StreamServer:
         self.app.router.add_get('/stream', self.stream_handler)
 
     # ==========================================
-    # 1. HTML WEB PLAYER (User Interface)
+    # 1. HTML WEB PLAYER (Sci-Fi / Neon UI)
     # ==========================================
     async def html_player_handler(self, request):
         data_param = request.query.get("data")
@@ -36,50 +36,131 @@ class StreamServer:
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Voltaic Network Player</title>
+            <title>Voltaic Network | Secure Stream</title>
+            <!-- Tailwind CSS -->
+            <script src="https://cdn.tailwindcss.com"></script>
+            <!-- Plyr CSS -->
+            <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+            <!-- Google Fonts -->
+            <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
             <style>
+                :root {{
+                    --neon-purple: #a855f7;
+                    --bg-dark: #050508;
+                    --panel-bg: rgba(20, 20, 30, 0.6);
+                }}
                 body {{
-                    margin: 0;
-                    padding: 0;
-                    background-color: #0f0f0f;
-                    color: white;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: var(--bg-dark);
+                    background-image:
+                        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+                        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+                    background-size: 100% 100%, 30px 30px, 30px 30px;
+                    color: #e2e8f0;
+                    font-family: 'Space Mono', monospace;
                 }}
-                .player-container {{
-                    width: 100%;
-                    max-width: 900px;
-                    background: #000;
-                    box-shadow: 0 4px 20px rgba(0,255,255,0.1);
-                    border-radius: 10px;
-                    overflow: hidden;
+                .neon-text {{
+                    color: var(--neon-purple);
+                    text-shadow: 0 0 15px rgba(168, 85, 247, 0.6), 0 0 30px rgba(168, 85, 247, 0.4);
                 }}
-                video {{
-                    width: 100%;
-                    height: auto;
-                    outline: none;
+                .glass-panel {{
+                    background: var(--panel-bg);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(168, 85, 247, 0.15);
+                    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(168, 85, 247, 0.05);
                 }}
-                .branding {{
-                    padding: 15px;
-                    background: #111;
-                    text-align: center;
-                    font-weight: bold;
-                    color: #00ffff;
-                    letter-spacing: 1px;
+                .plyr {{
+                    --plyr-color-main: var(--neon-purple);
+                    --plyr-video-background: transparent;
+                    border-radius: 0.5rem;
+                }}
+                .status-dot {{
+                    width: 8px;
+                    height: 8px;
+                    background-color: var(--neon-purple);
+                    border-radius: 50%;
+                    box-shadow: 0 0 8px var(--neon-purple);
+                    display: inline-block;
+                    animation: pulse 2s infinite;
+                }}
+                @keyframes pulse {{
+                    0% {{ opacity: 1; box-shadow: 0 0 12px var(--neon-purple); }}
+                    50% {{ opacity: 0.4; box-shadow: 0 0 2px var(--neon-purple); }}
+                    100% {{ opacity: 1; box-shadow: 0 0 12px var(--neon-purple); }}
                 }}
             </style>
         </head>
-        <body>
-            <div class="player-container">
-                <video controls autoplay playsinline>
-                    <source src="{stream_url}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                <div class="branding">⚡ VOLTAIC NETWORK STREAM ⚡</div>
-            </div>
+        <body class="min-h-screen flex flex-col items-center p-4 md:p-8">
+
+            <!-- Top Navigation -->
+            <nav class="w-full max-w-6xl flex justify-between items-center text-xs tracking-widest text-gray-400 z-50 uppercase mb-12 mt-4">
+                <div class="flex items-center gap-3">
+                    <span class="status-dot"></span>
+                    <span class="text-white font-bold tracking-[0.2em]">VOLTAIC NETWORK</span>
+                </div>
+                <div class="hidden md:flex gap-8">
+                    <span class="hover:text-purple-400 cursor-pointer transition">INDEX</span>
+                    <span class="hover:text-purple-400 cursor-pointer transition">SYLLABUS</span>
+                    <span class="hover:text-purple-400 cursor-pointer transition">RESOURCES</span>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="w-full max-w-4xl flex flex-col items-center">
+                
+                <h1 class="text-3xl md:text-5xl font-black tracking-widest neon-text mb-4 uppercase text-center">
+                    SECURE STREAM
+                </h1>
+                <p class="text-gray-500 text-xs md:text-sm mb-10 tracking-[0.1em]">
+                    // LOC_SYS: <span id="clock"></span>
+                </p>
+
+                <!-- Video Player Container -->
+                <div class="glass-panel w-full rounded-xl p-2 relative shadow-2xl mb-8">
+                    <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-purple-500/50 rounded-tl-xl"></div>
+                    <div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-purple-500/50 rounded-tr-xl"></div>
+                    <div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-purple-500/50 rounded-bl-xl"></div>
+                    <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-purple-500/50 rounded-br-xl"></div>
+
+                    <video id="player" playsinline controls class="w-full rounded-lg">
+                        <source src="{stream_url}" type="video/mp4" />
+                    </video>
+                </div>
+
+                <!-- Bottom Data Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                    <div class="glass-panel rounded-lg p-5 flex flex-col items-center justify-center text-center">
+                        <p class="text-[10px] text-gray-500 tracking-widest mb-2 uppercase">Target Metric</p>
+                        <p class="text-sm font-bold text-gray-200">Active Connection</p>
+                    </div>
+                    <div class="glass-panel rounded-lg p-5 flex flex-col items-center justify-center text-center">
+                        <p class="text-[10px] text-gray-500 tracking-widest mb-2 uppercase">Evaluation Mode</p>
+                        <p class="text-sm font-bold text-purple-400">Encrypted Relay</p>
+                    </div>
+                    <div class="glass-panel rounded-lg p-5 flex flex-col items-center justify-center text-center">
+                        <p class="text-[10px] text-gray-500 tracking-widest mb-2 uppercase">Time Window</p>
+                        <p class="text-sm font-bold text-gray-200">15 Minutes</p>
+                    </div>
+                </div>
+            </main>
+
+            <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {{
+                    const player = new Plyr('#player', {{
+                        controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                        settings: ['quality', 'speed', 'loop']
+                    }});
+
+                    function updateClock() {{
+                        const now = new Date();
+                        const options = {{ day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }};
+                        document.getElementById('clock').innerText = now.toLocaleString('en-GB', options).replace(',', ' @') + ' am';
+                    }}
+                    setInterval(updateClock, 1000);
+                    updateClock();
+                }});
+            </script>
         </body>
         </html>
         """
@@ -165,10 +246,8 @@ class StreamServer:
 
         try:
             first_chunk = True
-            # Stream from the aligned offset
             async for chunk in self.bot.stream_media(msg, offset=aligned_offset, limit=aligned_limit):
                 if first_chunk:
-                    # Slice off the extra bytes Telegram forced us to download
                     chunk = chunk[first_part_cut:]
                     first_chunk = False
                 
