@@ -11,7 +11,7 @@ from pyrogram.enums import ParseMode
 from bot import Bot
 from database.videos import get_video_message_id, increment_view_count
 
-STREAM_DOMAIN = "https://rational-karel-comet67-bc9013b6.koyeb.app/"
+STREAM_DOMAIN = "https://rational-karel-comet67-bc9013b6.koyeb.app"
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
 
 # Rate Limiter Dictionary
