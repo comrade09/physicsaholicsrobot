@@ -11,22 +11,14 @@ from pyrogram.errors import FloodWait
 # --- CONFIGURATION ---
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
 DUMP_CHANNEL_ID = -1003946902565
-PORT = int(os.environ.get("PORT", 8080)) 
 
 class StreamServer:
     def __init__(self, bot):
         self.bot = bot 
         self.app = web.Application()
-        # Two routes now: One for the UI, one for the raw video data
+        # Two routes: One for the UI, one for the raw video data
         self.app.router.add_get('/watch', self.html_player_handler)
         self.app.router.add_get('/stream', self.stream_handler)
-
-    async def start(self):
-        runner = web.AppRunner(self.app)
-        await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", PORT)
-        await site.start()
-        print(f"🌐 Koyeb Streaming Server started on port {PORT}")
 
     # ==========================================
     # 1. HTML WEB PLAYER (User Interface)
@@ -38,10 +30,8 @@ class StreamServer:
         if not data_param or not sig_param:
             return web.Response(text="Missing parameters", status=400)
 
-        # Build the URL for the raw video stream
         stream_url = f"/stream?data={data_param}&sig={sig_param}"
 
-        # Modern, dark-themed HTML video player
         html_content = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -107,12 +97,10 @@ class StreamServer:
         if not data_param or not sig_param:
             return web.Response(text="Missing parameters", status=400)
 
-        # Validate the Signature
         expected_sig = hmac.new(SECRET_KEY, data_param.encode("utf-8"), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_sig, sig_param):
             return web.Response(text="Invalid or tampered signature", status=403)
 
-        # Decode the Payload
         try:
             padding = len(data_param) % 4
             if padding:
@@ -122,7 +110,6 @@ class StreamServer:
         except Exception:
             return web.Response(text="Malformed payload", status=400)
 
-        # Check Expiration Time
         if int(time.time()) > payload.get("exp", 0):
             return web.Response(text="Link Expired. Please request a new one from the bot.", status=410)
 
@@ -130,7 +117,6 @@ class StreamServer:
         if not message_id:
             return web.Response(text="Invalid video ID", status=400)
 
-        # Fetch Message from Telegram using Pyrogram MTProto
         try:
             msg = await self.bot.get_messages(DUMP_CHANNEL_ID, message_id)
             media = msg.video or msg.document or msg.animation
@@ -143,7 +129,6 @@ class StreamServer:
         mime_type = getattr(media, "mime_type", "video/mp4")
         file_name = getattr(media, "file_name", f"video_{message_id}.mp4")
 
-        # Parse HTTP Range Headers (Allows users to skip forward/backward in the HTML player)
         range_header = request.headers.get("Range")
         if range_header:
             match = re.search(r'bytes=(\d+)-(\d*)', range_header)
@@ -163,7 +148,6 @@ class StreamServer:
 
         length = end - start + 1
 
-        # Setup Response Headers
         headers = {
             "Content-Type": mime_type,
             "Accept-Ranges": "bytes",
@@ -175,12 +159,10 @@ class StreamServer:
         response = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await response.prepare(request)
 
-        # Stream Data directly from Telegram's servers to the Web Player
         try:
             async for chunk in self.bot.stream_media(msg, offset=start, limit=length):
                 await response.write(chunk)
         except (ConnectionResetError, web.HTTPProcessingError):
-            # Normal behavior when a user skips forward in the video player
             pass
         except FloodWait as e:
             print(f"Stream interrupted by FloodWait: {e}")
@@ -190,9 +172,9 @@ class StreamServer:
         return response
 
 # ==========================================
-# 3. WEB SERVER LAUNCHER (Resolves your ImportError)
+# 3. WEB SERVER EXPORT (Matches bot.py expectations)
 # ==========================================
 async def web_server(bot):
-    """Initializes and starts the streaming server."""
+    """Returns the web application instance for bot.py to run."""
     server = StreamServer(bot)
-    await server.start()
+    return server.app # <--- This fixes the "got None" TypeError!
