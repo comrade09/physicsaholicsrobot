@@ -15,7 +15,7 @@ from database.videos import get_video_message_id, increment_view_count
 KOYEB_DOMAIN = "https://rational-karel-comet67-bc9013b6.koyeb.app"
 CLOUDFLARE_DOMAIN = "https://twilight-mode-66ac.fusionfiner.workers.dev" # Replace with your CF Worker URL
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
-DUMP_CHANNEL_ID = -1003946902565
+DUMP_CHANNEL_ID = -1004478362115
 
 # Rate Limiter State
 USER_SEARCH_DATA = {}
@@ -97,13 +97,13 @@ async def search_question_code(bot: Bot, message: Message):
     # 7. Build Keyboard UI
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🎥 Link 1 (Cloudflare)", url=cloudflare_url),
-            InlineKeyboardButton("🎥 Link 2 (Koyeb)", url=koyeb_url)
+            InlineKeyboardButton("Link 1", url=cloudflare_url),
+            InlineKeyboardButton("Link 2 ", url=koyeb_url)
         ]
     ])
     
     sent_msg = await message.reply_text(
-        text=f"✅ **Found Video:** `{question_code}`\n\n⏳ *This link and message will self-destruct in 15 minutes to keep your chat clean.*",
+        text=f"✅ **Found Solution For Code :** `{question_code}`",
         reply_markup=keyboard,
         parse_mode=ParseMode.MARKDOWN
     )
