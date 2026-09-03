@@ -8,6 +8,7 @@ from aiohttp import web
 
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
 DUMP_CHANNEL_ID = -1003946902565
+TELEGRAM_CHUNK_ALIGNMENT = 4096
 
 routes = web.RouteTableDef()
 
@@ -34,6 +35,39 @@ def verify_token(request):
         return int(payload["mid"]), None
     except Exception:
         return None, web.Response(text="Malformed token.", status=400)
+
+
+async def stream_media_aligned(bot, message, offset_bytes: int, length_bytes: int):
+    """
+    Aligns the Pyrogram stream offset to Telegram's 4096-byte boundaries to prevent OFFSET_INVALID (400),
+    while stripping excess padding bytes so the browser receives exactly what it requested.
+    """
+    aligned_offset = (offset_bytes // TELEGRAM_CHUNK_ALIGNMENT) * TELEGRAM_CHUNK_ALIGNMENT
+    skip_bytes = offset_bytes - aligned_offset
+    bytes_to_read = length_bytes
+
+    async for chunk in bot.stream_media(message, offset=aligned_offset):
+        if not chunk:
+            break
+        
+        # Skip leading padding bytes that the browser didn't ask for
+        if skip_bytes > 0:
+            if len(chunk) <= skip_bytes:
+                skip_bytes -= len(chunk)
+                continue
+            chunk = chunk[skip_bytes:]
+            skip_bytes = 0
+        
+        # Stop yielding once we've fulfilled the requested length
+        if bytes_to_read is not None:
+            if len(chunk) > bytes_to_read:
+                yield chunk[:bytes_to_read]
+                break
+            else:
+                bytes_to_read -= len(chunk)
+                
+        yield chunk
+
 
 # --- THE CUSTOM HTML PLAYER ---
 @routes.get("/watch")
@@ -182,10 +216,19 @@ async def stream_video(request):
         )
 
         await response.prepare(request)
-        async for chunk in bot.stream_media(message, offset=offset, limit=limit):
-            await response.write(chunk)
-
+        
+        try:
+            # Use the new chunk aligner instead of raw bot.stream_media
+            async for chunk in stream_media_aligned(bot, message, offset, chunk_size):
+                await response.write(chunk)
+        except ConnectionResetError:
+            # Browser closed the connection (e.g. user skipped forward in the video)
+            pass
+        except Exception as streaming_err:
+            print(f"Error during video chunk write: {streaming_err}")
+            
         return response
+
     except Exception as e:
         print(f"Streaming Error: {e}")
         return web.Response(text="Error streaming from Telegram.", status=500)
