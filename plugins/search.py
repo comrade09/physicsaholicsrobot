@@ -38,7 +38,7 @@ def generate_cloudflare_link(file_id: str) -> str:
     signature = hmac.new(SECRET_KEY, encoded_payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{CLOUDFLARE_DOMAIN}/watch?data={encoded_payload}&sig={signature}"
 
-@Bot.on_message(filters.command(["search"]) & filters.private, group=3838)
+@Bot.on_message(filters.command(["search"]) & filters.private, group=3464)
 async def search_question_code(bot: Bot, message: Message):
     user_id = message.from_user.id
     current_time = time.time()
