@@ -11,21 +11,32 @@ from pyrogram.enums import ParseMode
 from bot import Bot
 from database.videos import get_video_message_id, increment_view_count
 
-STREAM_DOMAIN = "https://rational-karel-comet67-bc9013b6.koyeb.app"
+# --- CONFIGURATION ---
+KOYEB_DOMAIN = "https://rational-karel-comet67-bc9013b6.koyeb.app"
+CLOUDFLARE_DOMAIN = "https://twilight-mode-66ac.fusionfiner.workers.dev" # Replace with your CF Worker URL
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
+DUMP_CHANNEL_ID = -1003946902565
 
-# Rate Limiter Dictionary
+# Rate Limiter State
 USER_SEARCH_DATA = {}
 
-def generate_expiring_link(message_id: int) -> str:
-    expire_time = int(time.time()) + 900 # 15 minutes
-    
+def generate_koyeb_link(message_id: int) -> str:
+    """Generates a signed expiring link pointing to the Koyeb stream (uses message_id)."""
+    expire_time = int(time.time()) + 900  # 15 minutes
     payload = {"mid": message_id, "exp": expire_time}
     payload_bytes = json.dumps(payload).encode("utf-8")
     encoded_payload = base64.urlsafe_b64encode(payload_bytes).decode("utf-8").rstrip("=")
-    
     signature = hmac.new(SECRET_KEY, encoded_payload.encode("utf-8"), hashlib.sha256).hexdigest()
-    return f"{STREAM_DOMAIN}/watch?data={encoded_payload}&sig={signature}"
+    return f"{KOYEB_DOMAIN}/watch?data={encoded_payload}&sig={signature}"
+
+def generate_cloudflare_link(file_id: str) -> str:
+    """Generates a signed expiring link pointing to Cloudflare (uses file_id)."""
+    expire_time = int(time.time()) + 900  # 15 minutes
+    payload = {"fid": file_id, "exp": expire_time}
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    encoded_payload = base64.urlsafe_b64encode(payload_bytes).decode("utf-8").rstrip("=")
+    signature = hmac.new(SECRET_KEY, encoded_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{CLOUDFLARE_DOMAIN}/watch?data={encoded_payload}&sig={signature}"
 
 @Bot.on_message(filters.command(["search"]) & filters.private, group=3838)
 async def search_question_code(bot: Bot, message: Message):
@@ -46,7 +57,6 @@ async def search_question_code(bot: Bot, message: Message):
         )
         return
         
-    # Add current search timestamp
     USER_SEARCH_DATA[user_id].append(current_time)
 
     # 2. Command Parsing
@@ -60,19 +70,36 @@ async def search_question_code(bot: Bot, message: Message):
         await message.reply_text("❌ **Invalid Code!** Must be 2 letters + 4 digits (e.g., DB0149).", parse_mode=ParseMode.MARKDOWN)
         return
         
+    # 3. Fetch Message ID from DB
     message_id = await get_video_message_id(question_code)
     
     if not message_id:
         await message.reply_text(f"❌ **Not Found:** No video saved for code `{question_code}`.", parse_mode=ParseMode.MARKDOWN)
         return
         
-    # 📊 3. INCREMENT ANALYTICS VIEW COUNT
+    # 4. Fetch the File ID from the Dump Channel (Required for Cloudflare)
+    try:
+        msg = await bot.get_messages(DUMP_CHANNEL_ID, message_id)
+        media = msg.video or msg.document or msg.animation or msg.video_note
+        if not media:
+            return await message.reply_text("❌ Media object missing in database channel.")
+        file_id = media.file_id
+    except Exception as e:
+        return await message.reply_text(f"❌ Error fetching file from channel: {e}")
+
+    # 📊 5. INCREMENT ANALYTICS VIEW COUNT
     await increment_view_count(question_code)
         
-    stream_url = generate_expiring_link(message_id)
+    # 🔗 6. GENERATE BOTH URLS
+    koyeb_url = generate_koyeb_link(message_id)
+    cloudflare_url = generate_cloudflare_link(file_id)
     
+    # 7. Build Keyboard UI
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎥 Watch Video", url=stream_url)]
+        [
+            InlineKeyboardButton("🎥 Link 1 (Cloudflare)", url=cloudflare_url),
+            InlineKeyboardButton("🎥 Link 2 (Koyeb)", url=koyeb_url)
+        ]
     ])
     
     sent_msg = await message.reply_text(
@@ -81,7 +108,7 @@ async def search_question_code(bot: Bot, message: Message):
         parse_mode=ParseMode.MARKDOWN
     )
     
-    # ⏳ 4. AUTO-DELETE BACKGROUND TIMER
+    # ⏳ 8. AUTO-DELETE BACKGROUND TIMER
     async def auto_delete_task(chat_id, msg_id):
         await asyncio.sleep(900) # Wait exactly 15 minutes
         try:
