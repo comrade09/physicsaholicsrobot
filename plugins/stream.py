@@ -4,6 +4,7 @@ import base64
 import hmac
 import hashlib
 import re
+import mimetypes
 from aiohttp import web
 
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
@@ -35,6 +36,27 @@ def verify_token(request):
         return int(payload["mid"]), None
     except Exception:
         return None, web.Response(text="Malformed token.", status=400)
+
+
+def get_media_from_message(message):
+    """Extract media object and resolve proper filename and MIME type."""
+    if not message:
+        return None, None, 0, "video/mp4"
+
+    media = message.video or message.document or message.animation or message.video_note
+    if not media:
+        return None, None, 0, "video/mp4"
+
+    file_name = getattr(media, "file_name", None) or f"video_{message.id}.mp4"
+    file_size = getattr(media, "file_size", 0)
+    
+    # Auto-detect accurate mime type if Telegram gives generic application/octet-stream
+    mime_type = getattr(media, "mime_type", None)
+    if not mime_type or mime_type == "application/octet-stream":
+        guessed_type, _ = mimetypes.guess_type(file_name)
+        mime_type = guessed_type or "video/mp4"
+
+    return media, file_name, file_size, mime_type
 
 
 async def stream_media_aligned(bot, message, offset_bytes: int, length_bytes: int):
@@ -76,9 +98,17 @@ async def render_player(request):
     if error_response:
         return error_response
 
-    # Reconstruct the query string to pass to the /play endpoint
+    # Reconstruct query strings and absolute URLs for external app handlers
     raw_query = request.query_string
+    host = request.host
+    scheme = request.scheme
+    
     stream_url = f"/play?{raw_query}"
+    full_stream_url = f"{scheme}://{host}{stream_url}"
+
+    # Custom intents for external player apps
+    vlc_url = f"vlc://{full_stream_url}"
+    mx_url = f"intent:{full_stream_url}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -107,24 +137,13 @@ async def render_player(request):
                 color: #e4e4e7;
             }}
             .font-mono {{ font-family: 'Fira Code', monospace; }}
-            
-            /* Glassmorphism Card */
-            .glass-card {{
-                background: rgba(255, 255, 255, 0.03);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(255, 255, 255, 0.05);
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            }}
-            
-            /* Disable right click on video wrapper */
             .plyr {{ border-radius: 0.5rem; overflow: hidden; }}
         </style>
     </head>
     <body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8" oncontextmenu="return false;">
         
         <!-- Header -->
-        <div class="w-full max-w-5xl flex justify-between items-center mb-8 px-2">
+        <div class="w-full max-w-5xl flex justify-between items-center mb-6 px-2">
             <div class="flex items-center gap-3">
                 <div class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
                 <h1 class="text-sm font-bold tracking-[0.2em] text-gray-300">VOLTAIC NETWORK</h1>
@@ -137,12 +156,28 @@ async def render_player(request):
         <!-- Video Container -->
         <div class="w-full max-w-5xl glass-card rounded-xl p-2 md:p-4 relative">
             <video id="player" playsinline controls class="w-full h-auto rounded-lg shadow-2xl">
-                <source src="{stream_url}" type="video/mp4" />
+                <source src="{stream_url}" />
             </video>
         </div>
 
+        <!-- External Player Fallback Buttons -->
+        <div class="w-full max-w-5xl mt-4 glass-card rounded-xl p-4">
+            <div class="text-xs font-mono text-gray-400 mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Having playback or audio issues (e.g. MKV format)? Open in external player:</span>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="{vlc_url}" class="px-4 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-300 text-xs font-semibold transition-all">
+                    Open in VLC
+                </a>
+                <a href="{mx_url}" class="px-4 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs font-semibold transition-all">
+                    Open in MX Player
+                </a>
+            </div>
+        </div>
+
         <!-- Footer Info -->
-        <div class="w-full max-w-5xl mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-center md:text-left text-sm font-mono text-gray-400">
+        <div class="w-full max-w-5xl mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center md:text-left text-sm font-mono text-gray-400">
             <div class="glass-card p-4 rounded-lg">
                 <span class="block text-xs text-gray-600 mb-1">NETWORK</span>
                 <a href="https://t.me/voltaic_network" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">@voltaic_network</a>
@@ -184,12 +219,10 @@ async def stream_video(request):
 
     try:
         message = await bot.get_messages(DUMP_CHANNEL_ID, message_id)
-        if not message or not (message.video or message.document):
-            return web.Response(text="Video file not found in database channel.", status=404)
+        media, file_name, file_size, mime_type = get_media_from_message(message)
 
-        media = message.video or message.document
-        file_size = media.file_size
-        mime_type = media.mime_type or "video/mp4"
+        if not media or file_size == 0:
+            return web.Response(text="Video file not found in database channel.", status=404)
 
         range_header = request.headers.get("Range", "")
         offset = 0
@@ -210,7 +243,7 @@ async def stream_video(request):
                 "Content-Range": f"bytes {offset}-{limit-1}/{file_size}",
                 "Accept-Ranges": "bytes",
                 "Content-Length": str(chunk_size),
-                "Content-Disposition": f'inline; filename="video_{message_id}.mp4"',
+                "Content-Disposition": f'inline; filename="{file_name}"',
                 "Access-Control-Allow-Origin": "*"
             }
         )
@@ -218,11 +251,10 @@ async def stream_video(request):
         await response.prepare(request)
         
         try:
-            # Use the new chunk aligner instead of raw bot.stream_media
             async for chunk in stream_media_aligned(bot, message, offset, chunk_size):
                 await response.write(chunk)
         except ConnectionResetError:
-            # Browser closed the connection (e.g. user skipped forward in the video)
+            # Browser closed the connection (e.g. user skipped forward or closed page)
             pass
         except Exception as streaming_err:
             print(f"Error during video chunk write: {streaming_err}")
