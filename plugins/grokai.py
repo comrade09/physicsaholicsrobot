@@ -7,7 +7,7 @@ from bot import Bot
 
 # Pulls from Koyeb Environment Variables
 GEMINI = os.environ.get("GEMINI")
-ALLOWED_GROUP_ID = -1002468416084  
+ALLOWED_GROUP_ID = -1002179513175
 
 # Global state to track if Unhinged Mode is enabled
 UNHINGED_MODE_ENABLED = False
