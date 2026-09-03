@@ -9,7 +9,7 @@ from bot import Bot
 GEMINI = os.environ.get("GEMINI")
 GROQ_API_KEY = "abcd"
 
-ALLOWED_GROUP_ID = -1002468416084  
+ALLOWED_GROUP_ID = -1002179513175  
 
 # Global states
 UNHINGED_MODE_ENABLED = False
