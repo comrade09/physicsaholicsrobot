@@ -15,7 +15,6 @@ class StreamServer:
     def __init__(self, bot):
         self.bot = bot 
         self.app = web.Application()
-        # Define our two routes
         self.app.router.add_get('/watch', self.html_player_handler)
         self.app.router.add_get('/stream', self.stream_handler)
 
@@ -29,10 +28,8 @@ class StreamServer:
         if not data_param or not sig_param:
             return web.Response(text="Missing parameters", status=400)
 
-        # Build the URL that the video player will use to fetch the raw data
         stream_url = f"/stream?data={data_param}&sig={sig_param}"
 
-        # Sleek, dark-themed HTML video player
         html_content = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -98,12 +95,10 @@ class StreamServer:
         if not data_param or not sig_param:
             return web.Response(text="Missing parameters", status=400)
 
-        # Security check: Validate the HMAC signature
         expected_sig = hmac.new(SECRET_KEY, data_param.encode("utf-8"), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_sig, sig_param):
             return web.Response(text="Invalid or tampered signature", status=403)
 
-        # Decode the JSON Payload
         try:
             padding = len(data_param) % 4
             if padding:
@@ -113,7 +108,6 @@ class StreamServer:
         except Exception:
             return web.Response(text="Malformed payload", status=400)
 
-        # Check Expiration Time (15-minute validity)
         if int(time.time()) > payload.get("exp", 0):
             return web.Response(text="Link Expired. Please request a new one from the bot.", status=410)
 
@@ -121,7 +115,6 @@ class StreamServer:
         if not message_id:
             return web.Response(text="Invalid video ID", status=400)
 
-        # Fetch the message from Telegram
         try:
             msg = await self.bot.get_messages(DUMP_CHANNEL_ID, message_id)
             media = msg.video or msg.document or msg.animation
@@ -134,7 +127,6 @@ class StreamServer:
         mime_type = getattr(media, "mime_type", "video/mp4")
         file_name = getattr(media, "file_name", f"video_{message_id}.mp4")
 
-        # Parse HTTP Range Headers (Crucial for video seeking/scrubbing)
         range_header = request.headers.get("Range")
         if range_header:
             match = re.search(r'bytes=(\d+)-(\d*)', range_header)
@@ -154,7 +146,12 @@ class StreamServer:
 
         length = end - start + 1
 
-        # Response Headers required by video players
+        # --- ALIGNMENT FIX FOR TELEGRAM API ---
+        CHUNK_SIZE = 1048576  # 1 MB chunks
+        aligned_offset = start - (start % CHUNK_SIZE)
+        first_part_cut = start - aligned_offset
+        aligned_limit = length + first_part_cut
+
         headers = {
             "Content-Type": mime_type,
             "Accept-Ranges": "bytes",
@@ -166,12 +163,18 @@ class StreamServer:
         response = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await response.prepare(request)
 
-        # Stream chunk by chunk from Telegram to the User's browser
         try:
-            async for chunk in self.bot.stream_media(msg, offset=start, limit=length):
+            first_chunk = True
+            # Stream from the aligned offset
+            async for chunk in self.bot.stream_media(msg, offset=aligned_offset, limit=aligned_limit):
+                if first_chunk:
+                    # Slice off the extra bytes Telegram forced us to download
+                    chunk = chunk[first_part_cut:]
+                    first_chunk = False
+                
                 await response.write(chunk)
+                
         except (ConnectionResetError, web.HTTPProcessingError):
-            # Safe to ignore: means the user paused, skipped forward, or closed the tab
             pass
         except FloodWait as e:
             print(f"Stream interrupted by FloodWait: {e}")
@@ -186,7 +189,6 @@ class StreamServer:
 async def web_server(bot):
     """
     Called by bot.py to get the web application instance.
-    Returns the aiohttp web.Application object.
     """
     server = StreamServer(bot)
     return server.app
