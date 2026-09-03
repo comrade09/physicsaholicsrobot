@@ -130,7 +130,7 @@ class StreamServer:
         if not message_id:
             return web.Response(text="Invalid video ID", status=400)
 
-        # Fetch Message from Telegram using Pyrogram MTProto (Handles up to 2GB seamlessly)
+        # Fetch Message from Telegram using Pyrogram MTProto
         try:
             msg = await self.bot.get_messages(DUMP_CHANNEL_ID, message_id)
             media = msg.video or msg.document or msg.animation
@@ -188,3 +188,11 @@ class StreamServer:
             print(f"Streaming error: {e}")
 
         return response
+
+# ==========================================
+# 3. WEB SERVER LAUNCHER (Resolves your ImportError)
+# ==========================================
+async def web_server(bot):
+    """Initializes and starts the streaming server."""
+    server = StreamServer(bot)
+    await server.start()
