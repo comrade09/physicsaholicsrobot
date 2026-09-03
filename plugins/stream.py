@@ -1,3 +1,4 @@
+
 import time
 import hmac
 import hashlib
@@ -37,11 +38,8 @@ class StreamServer:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Voltaic Network | Secure Stream</title>
-            <!-- Tailwind CSS -->
             <script src="https://cdn.tailwindcss.com"></script>
-            <!-- Plyr CSS -->
             <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-            <!-- Google Fonts -->
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
             <style>
                 :root {{
@@ -92,7 +90,6 @@ class StreamServer:
         </head>
         <body class="min-h-screen flex flex-col items-center p-4 md:p-8">
 
-            <!-- Top Navigation -->
             <nav class="w-full max-w-6xl flex justify-between items-center text-xs tracking-widest text-gray-400 z-50 uppercase mb-12 mt-4">
                 <div class="flex items-center gap-3">
                     <span class="status-dot"></span>
@@ -105,9 +102,7 @@ class StreamServer:
                 </div>
             </nav>
 
-            <!-- Main Content -->
             <main class="w-full max-w-4xl flex flex-col items-center">
-                
                 <h1 class="text-3xl md:text-5xl font-black tracking-widest neon-text mb-4 uppercase text-center">
                     SECURE STREAM
                 </h1>
@@ -115,7 +110,6 @@ class StreamServer:
                     // LOC_SYS: <span id="clock"></span>
                 </p>
 
-                <!-- Video Player Container -->
                 <div class="glass-panel w-full rounded-xl p-2 relative shadow-2xl mb-8">
                     <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-purple-500/50 rounded-tl-xl"></div>
                     <div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-purple-500/50 rounded-tr-xl"></div>
@@ -127,7 +121,6 @@ class StreamServer:
                     </video>
                 </div>
 
-                <!-- Bottom Data Metrics -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
                     <div class="glass-panel rounded-lg p-5 flex flex-col items-center justify-center text-center">
                         <p class="text-[10px] text-gray-500 tracking-widest mb-2 uppercase">Target Metric</p>
@@ -230,10 +223,13 @@ class StreamServer:
 
         length = end - start + 1
 
-        # --- TELEGRAM RPC ALIGNMENT FIX ---
-        CHUNK_SIZE = 1048576  # 1 MB chunks (Telegram strict API requirement)
-        aligned_offset = start - (start % CHUNK_SIZE)
+        # --- THE FIX: STRICT 4096 BYTE ALIGNMENT ---
+        ALIGNMENT = 4096  # Telegram's strict 4 KB API requirement
+        aligned_offset = start - (start % ALIGNMENT)
         first_part_cut = start - aligned_offset
+        
+        # We must pass Pyrogram an aligned limit as well, based on the bytes we cut
+        aligned_limit = length + first_part_cut
 
         headers = {
             "Content-Type": mime_type,
@@ -249,16 +245,14 @@ class StreamServer:
         bytes_sent = 0
 
         try:
-            # We iterate WITHOUT a limit parameter to prevent Pyrogram from passing arbitrary limits to Telegram
-            async for chunk in self.bot.stream_media(msg, offset=aligned_offset):
-                # Cut the exact bytes out of the first 1MB chunk to match the user's browser offset
+            # We explicitly pass the properly aligned offset AND limit back into Pyrogram
+            async for chunk in self.bot.stream_media(msg, offset=aligned_offset, limit=aligned_limit):
                 if first_part_cut > 0:
                     chunk = chunk[first_part_cut:]
                     first_part_cut = 0
                 
                 chunk_length = len(chunk)
                 
-                # Trim the final chunk exactly to prevent pushing excess bytes beyond the requested range
                 if bytes_sent + chunk_length > length:
                     needed_bytes = length - bytes_sent
                     chunk = chunk[:needed_bytes]
@@ -266,7 +260,6 @@ class StreamServer:
                 await response.write(chunk)
                 bytes_sent += len(chunk)
                 
-                # Break manually once the requested bytes are fully delivered
                 if bytes_sent >= length:
                     break
                     
