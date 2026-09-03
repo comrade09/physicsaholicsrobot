@@ -1,272 +1,190 @@
+import os
 import time
-import json
-import base64
 import hmac
 import hashlib
+import base64
+import json
 import re
-import mimetypes
 from aiohttp import web
+from pyrogram.errors import FloodWait
 
+# --- CONFIGURATION ---
 SECRET_KEY = b"84b6f10c7931c890e0e1a967f6515f40192ea62f25608d0f7a75932598be6f2d"
 DUMP_CHANNEL_ID = -1003946902565
-TELEGRAM_CHUNK_ALIGNMENT = 4096
+PORT = int(os.environ.get("PORT", 8080)) 
 
-routes = web.RouteTableDef()
+class StreamServer:
+    def __init__(self, bot):
+        self.bot = bot 
+        self.app = web.Application()
+        # Two routes now: One for the UI, one for the raw video data
+        self.app.router.add_get('/watch', self.html_player_handler)
+        self.app.router.add_get('/stream', self.stream_handler)
 
-def verify_token(request):
-    """Helper to verify URL signatures."""
-    data = request.query.get("data")
-    sig = request.query.get("sig")
+    async def start(self):
+        runner = web.AppRunner(self.app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", PORT)
+        await site.start()
+        print(f"🌐 Koyeb Streaming Server started on port {PORT}")
 
-    if not data or not sig:
-        return None, web.Response(text="Missing required parameters.", status=400)
+    # ==========================================
+    # 1. HTML WEB PLAYER (User Interface)
+    # ==========================================
+    async def html_player_handler(self, request):
+        data_param = request.query.get("data")
+        sig_param = request.query.get("sig")
 
-    expected_sig = hmac.new(SECRET_KEY, data.encode("utf-8"), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected_sig, sig):
-        return None, web.Response(text="Invalid or tampered link signature.", status=403)
+        if not data_param or not sig_param:
+            return web.Response(text="Missing parameters", status=400)
 
-    try:
-        padding = "=" * (4 - len(data) % 4)
-        decoded_json = base64.urlsafe_b64decode(data + padding).decode("utf-8")
-        payload = json.loads(decoded_json)
+        # Build the URL for the raw video stream
+        stream_url = f"/stream?data={data_param}&sig={sig_param}"
 
-        if int(time.time()) > payload["exp"]:
-            return None, web.Response(text="⚠️ This link expired. Please search again in the bot.", status=403)
-
-        return int(payload["mid"]), None
-    except Exception:
-        return None, web.Response(text="Malformed token.", status=400)
-
-
-def get_media_from_message(message):
-    """Extract media object and resolve proper filename and MIME type."""
-    if not message:
-        return None, None, 0, "video/mp4"
-
-    media = message.video or message.document or message.animation or message.video_note
-    if not media:
-        return None, None, 0, "video/mp4"
-
-    file_name = getattr(media, "file_name", None) or f"video_{message.id}.mp4"
-    file_size = getattr(media, "file_size", 0)
-    
-    # Auto-detect accurate mime type if Telegram gives generic application/octet-stream
-    mime_type = getattr(media, "mime_type", None)
-    if not mime_type or mime_type == "application/octet-stream":
-        guessed_type, _ = mimetypes.guess_type(file_name)
-        mime_type = guessed_type or "video/mp4"
-
-    return media, file_name, file_size, mime_type
-
-
-async def stream_media_aligned(bot, message, offset_bytes: int, length_bytes: int):
-    """
-    Aligns the Pyrogram stream offset to Telegram's 4096-byte boundaries to prevent OFFSET_INVALID (400),
-    while stripping excess padding bytes so the browser receives exactly what it requested.
-    """
-    aligned_offset = (offset_bytes // TELEGRAM_CHUNK_ALIGNMENT) * TELEGRAM_CHUNK_ALIGNMENT
-    skip_bytes = offset_bytes - aligned_offset
-    bytes_to_read = length_bytes
-
-    async for chunk in bot.stream_media(message, offset=aligned_offset):
-        if not chunk:
-            break
-        
-        # Skip leading padding bytes that the browser didn't ask for
-        if skip_bytes > 0:
-            if len(chunk) <= skip_bytes:
-                skip_bytes -= len(chunk)
-                continue
-            chunk = chunk[skip_bytes:]
-            skip_bytes = 0
-        
-        # Stop yielding once we've fulfilled the requested length
-        if bytes_to_read is not None:
-            if len(chunk) > bytes_to_read:
-                yield chunk[:bytes_to_read]
-                break
-            else:
-                bytes_to_read -= len(chunk)
-                
-        yield chunk
-
-
-# --- THE CUSTOM HTML PLAYER ---
-@routes.get("/watch")
-async def render_player(request):
-    message_id, error_response = verify_token(request)
-    if error_response:
-        return error_response
-
-    # Reconstruct query strings and absolute URLs for external app handlers
-    raw_query = request.query_string
-    host = request.host
-    scheme = request.scheme
-    
-    stream_url = f"/play?{raw_query}"
-    full_stream_url = f"{scheme}://{host}{stream_url}"
-
-    # Custom intents for external player apps
-    vlc_url = f"vlc://{full_stream_url}"
-    mx_url = f"intent:{full_stream_url}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end"
-
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Voltaic Network // Stream</title>
-        
-        <!-- Tailwind CSS & Google Fonts -->
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-        
-        <!-- Plyr Video Player -->
-        <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-        
-        <style>
-            :root {{
-                --plyr-color-main: #a855f7; /* Tailwind Purple 500 */
-                --plyr-video-background: #000;
-            }}
-            body {{
-                font-family: 'Inter', sans-serif;
-                background-color: #09090b;
-                background-image: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.15), transparent 50%);
-                color: #e4e4e7;
-            }}
-            .font-mono {{ font-family: 'Fira Code', monospace; }}
-            .plyr {{ border-radius: 0.5rem; overflow: hidden; }}
-        </style>
-    </head>
-    <body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8" oncontextmenu="return false;">
-        
-        <!-- Header -->
-        <div class="w-full max-w-5xl flex justify-between items-center mb-6 px-2">
-            <div class="flex items-center gap-3">
-                <div class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
-                <h1 class="text-sm font-bold tracking-[0.2em] text-gray-300">VOLTAIC NETWORK</h1>
+        # Modern, dark-themed HTML video player
+        html_content = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Voltaic Network Player</title>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background-color: #0f0f0f;
+                    color: white;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                }}
+                .player-container {{
+                    width: 100%;
+                    max-width: 900px;
+                    background: #000;
+                    box-shadow: 0 4px 20px rgba(0,255,255,0.1);
+                    border-radius: 10px;
+                    overflow: hidden;
+                }}
+                video {{
+                    width: 100%;
+                    height: auto;
+                    outline: none;
+                }}
+                .branding {{
+                    padding: 15px;
+                    background: #111;
+                    text-align: center;
+                    font-weight: bold;
+                    color: #00ffff;
+                    letter-spacing: 1px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="player-container">
+                <video controls autoplay playsinline>
+                    <source src="{stream_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="branding">⚡ VOLTAIC NETWORK STREAM ⚡</div>
             </div>
-            <div class="text-xs font-mono text-gray-500">
-                // SYS_STATUS: SECURE_STREAM
-            </div>
-        </div>
+        </body>
+        </html>
+        """
+        return web.Response(text=html_content, content_type='text/html')
 
-        <!-- Video Container -->
-        <div class="w-full max-w-5xl glass-card rounded-xl p-2 md:p-4 relative">
-            <video id="player" playsinline controls class="w-full h-auto rounded-lg shadow-2xl">
-                <source src="{stream_url}" />
-            </video>
-        </div>
+    # ==========================================
+    # 2. RAW VIDEO STREAMING (Backend Data)
+    # ==========================================
+    async def stream_handler(self, request):
+        data_param = request.query.get("data")
+        sig_param = request.query.get("sig")
 
-        <!-- External Player Fallback Buttons -->
-        <div class="w-full max-w-5xl mt-4 glass-card rounded-xl p-4">
-            <div class="text-xs font-mono text-gray-400 mb-3 flex items-center gap-2">
-                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span>Having playback or audio issues (e.g. MKV format)? Open in external player:</span>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <a href="{vlc_url}" class="px-4 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-300 text-xs font-semibold transition-all">
-                    Open in VLC
-                </a>
-                <a href="{mx_url}" class="px-4 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs font-semibold transition-all">
-                    Open in MX Player
-                </a>
-            </div>
-        </div>
+        if not data_param or not sig_param:
+            return web.Response(text="Missing parameters", status=400)
 
-        <!-- Footer Info -->
-        <div class="w-full max-w-5xl mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center md:text-left text-sm font-mono text-gray-400">
-            <div class="glass-card p-4 rounded-lg">
-                <span class="block text-xs text-gray-600 mb-1">NETWORK</span>
-                <a href="https://t.me/voltaic_network" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">@voltaic_network</a>
-            </div>
-            <div class="glass-card p-4 rounded-lg flex items-center justify-center">
-                <span class="text-gray-500">ENCRYPTED // EXPIRING LINK</span>
-            </div>
-            <div class="glass-card p-4 rounded-lg md:text-right">
-                <span class="block text-xs text-gray-600 mb-1">DEVELOPER</span>
-                Made with ❤️ by <a href="https://t.me/a3xarva" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">@a3xarva</a>
-            </div>
-        </div>
+        # Validate the Signature
+        expected_sig = hmac.new(SECRET_KEY, data_param.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_sig, sig_param):
+            return web.Response(text="Invalid or tampered signature", status=403)
 
-        <!-- Initialize Plyr -->
-        <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {{
-                const player = new Plyr('#player', {{
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings', 'pip', 'fullscreen'],
-                    settings: ['speed', 'quality'],
-                    speed: {{ selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }},
-                    keyboard: {{ focused: true, global: true }},
-                }});
-            }});
-        </script>
-    </body>
-    </html>
-    """
-    return web.Response(text=html_content, content_type='text/html')
-
-# --- THE RAW VIDEO BYTE STREAMER ---
-@routes.get("/play")
-async def stream_video(request):
-    message_id, error_response = verify_token(request)
-    if error_response:
-        return error_response
-
-    bot = request.app["bot"]
-
-    try:
-        message = await bot.get_messages(DUMP_CHANNEL_ID, message_id)
-        media, file_name, file_size, mime_type = get_media_from_message(message)
-
-        if not media or file_size == 0:
-            return web.Response(text="Video file not found in database channel.", status=404)
-
-        range_header = request.headers.get("Range", "")
-        offset = 0
-        limit = file_size
-
-        if range_header:
-            match = re.search(r"bytes=(\d+)-(\d*)", range_header)
-            if match:
-                offset = int(match.group(1))
-                end = match.group(2)
-                limit = (int(end) + 1) if end else file_size
-
-        chunk_size = limit - offset
-        response = web.StreamResponse(
-            status=206 if range_header else 200,
-            headers={
-                "Content-Type": mime_type,
-                "Content-Range": f"bytes {offset}-{limit-1}/{file_size}",
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(chunk_size),
-                "Content-Disposition": f'inline; filename="{file_name}"',
-                "Access-Control-Allow-Origin": "*"
-            }
-        )
-
-        await response.prepare(request)
-        
+        # Decode the Payload
         try:
-            async for chunk in stream_media_aligned(bot, message, offset, chunk_size):
+            padding = len(data_param) % 4
+            if padding:
+                data_param += "=" * (4 - padding)
+            payload_bytes = base64.urlsafe_b64decode(data_param)
+            payload = json.loads(payload_bytes.decode("utf-8"))
+        except Exception:
+            return web.Response(text="Malformed payload", status=400)
+
+        # Check Expiration Time
+        if int(time.time()) > payload.get("exp", 0):
+            return web.Response(text="Link Expired. Please request a new one from the bot.", status=410)
+
+        message_id = payload.get("mid")
+        if not message_id:
+            return web.Response(text="Invalid video ID", status=400)
+
+        # Fetch Message from Telegram using Pyrogram MTProto (Handles up to 2GB seamlessly)
+        try:
+            msg = await self.bot.get_messages(DUMP_CHANNEL_ID, message_id)
+            media = msg.video or msg.document or msg.animation
+            if not media:
+                return web.Response(text="Media not found", status=404)
+        except Exception as e:
+            return web.Response(text=f"Telegram Error: {e}", status=500)
+
+        file_size = media.file_size
+        mime_type = getattr(media, "mime_type", "video/mp4")
+        file_name = getattr(media, "file_name", f"video_{message_id}.mp4")
+
+        # Parse HTTP Range Headers (Allows users to skip forward/backward in the HTML player)
+        range_header = request.headers.get("Range")
+        if range_header:
+            match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+            if match:
+                start = int(match.group(1))
+                end = match.group(2)
+                end = int(end) if end else file_size - 1
+            else:
+                start = 0
+                end = file_size - 1
+        else:
+            start = 0
+            end = file_size - 1
+
+        if start >= file_size or end >= file_size or start > end:
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{file_size}"})
+
+        length = end - start + 1
+
+        # Setup Response Headers
+        headers = {
+            "Content-Type": mime_type,
+            "Accept-Ranges": "bytes",
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(length),
+            "Content-Disposition": f'inline; filename="{file_name}"'
+        }
+
+        response = web.StreamResponse(status=206 if range_header else 200, headers=headers)
+        await response.prepare(request)
+
+        # Stream Data directly from Telegram's servers to the Web Player
+        try:
+            async for chunk in self.bot.stream_media(msg, offset=start, limit=length):
                 await response.write(chunk)
-        except ConnectionResetError:
-            # Browser closed the connection (e.g. user skipped forward or closed page)
+        except (ConnectionResetError, web.HTTPProcessingError):
+            # Normal behavior when a user skips forward in the video player
             pass
-        except Exception as streaming_err:
-            print(f"Error during video chunk write: {streaming_err}")
-            
+        except FloodWait as e:
+            print(f"Stream interrupted by FloodWait: {e}")
+        except Exception as e:
+            print(f"Streaming error: {e}")
+
         return response
-
-    except Exception as e:
-        print(f"Streaming Error: {e}")
-        return web.Response(text="Error streaming from Telegram.", status=500)
-
-async def web_server(bot_client):
-    web_app = web.Application(client_max_size=30000000)
-    web_app["bot"] = bot_client
-    web_app.add_routes(routes)
-    return web_app
