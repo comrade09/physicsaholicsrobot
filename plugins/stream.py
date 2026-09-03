@@ -222,16 +222,18 @@ class StreamServer:
             start = 0
             end = file_size - 1
 
-        if start >= file_size or end >= file_size or start > end:
+        if start >= file_size:
             return web.Response(status=416, headers={"Content-Range": f"bytes */{file_size}"})
+            
+        if end >= file_size:
+            end = file_size - 1
 
         length = end - start + 1
 
-        # --- ALIGNMENT FIX FOR TELEGRAM API ---
-        CHUNK_SIZE = 1048576  # 1 MB chunks
+        # --- TELEGRAM RPC ALIGNMENT FIX ---
+        CHUNK_SIZE = 1048576  # 1 MB chunks (Telegram strict API requirement)
         aligned_offset = start - (start % CHUNK_SIZE)
         first_part_cut = start - aligned_offset
-        aligned_limit = length + first_part_cut
 
         headers = {
             "Content-Type": mime_type,
@@ -244,17 +246,32 @@ class StreamServer:
         response = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await response.prepare(request)
 
+        bytes_sent = 0
+
         try:
-            first_chunk = True
-            async for chunk in self.bot.stream_media(msg, offset=aligned_offset, limit=aligned_limit):
-                if first_chunk:
+            # We iterate WITHOUT a limit parameter to prevent Pyrogram from passing arbitrary limits to Telegram
+            async for chunk in self.bot.stream_media(msg, offset=aligned_offset):
+                # Cut the exact bytes out of the first 1MB chunk to match the user's browser offset
+                if first_part_cut > 0:
                     chunk = chunk[first_part_cut:]
-                    first_chunk = False
+                    first_part_cut = 0
                 
+                chunk_length = len(chunk)
+                
+                # Trim the final chunk exactly to prevent pushing excess bytes beyond the requested range
+                if bytes_sent + chunk_length > length:
+                    needed_bytes = length - bytes_sent
+                    chunk = chunk[:needed_bytes]
+                    
                 await response.write(chunk)
+                bytes_sent += len(chunk)
                 
+                # Break manually once the requested bytes are fully delivered
+                if bytes_sent >= length:
+                    break
+                    
         except (ConnectionResetError, web.HTTPProcessingError):
-            pass
+            pass # Standard behavior when a user scrubs the video timeline
         except FloodWait as e:
             print(f"Stream interrupted by FloodWait: {e}")
         except Exception as e:
