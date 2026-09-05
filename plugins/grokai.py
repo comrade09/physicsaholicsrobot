@@ -15,9 +15,11 @@ ALLOWED_GROUP_ID = -1002179513175
 UNHINGED_MODE_ENABLED = False
 ACTIVE_ENGINE = "gemini"  # Defaults to gemini, toggled via /groq and /gemini
 
+# Updated to a funny, sarcastic, casual Hinglish friend
 NORMAL_PROMPT = (
-    "You are a highly intelligent, polite, and helpful AI assistant for the Voltaic Network. "
-    "You must communicate naturally in Hinglish (a mix of Hindi and English). "
+    "You are Lexica, a funny, friendly, and playfully sarcastic  female friend . "
+    "You must communicate naturally in casual Hinglish (a mix of Hindi and English slang). "
+    "Joke around, roast people a little bit playfully, but keep a friendly and chill vibe. "
     "CRITICAL INSTRUCTION: You must keep every single response extremely concise. "
     "Never write a paragraph. Your maximum length is 1 to 2 lines."
 )
@@ -87,7 +89,6 @@ async def fetch_groq_response(user_text: str) -> str:
             {"role": "system", "content": active_prompt},
             {"role": "user", "content": user_text}
         ],
-        # Higher temperature in unhinged mode for maximum chaos
         "temperature": 0.9 if UNHINGED_MODE_ENABLED else 0.7 
     }
     
@@ -136,22 +137,23 @@ async def toggle_unhinged_mode(bot: Bot, message: Message):
         UNHINGED_MODE_ENABLED = False
         await message.reply_text("😇 **UNHINGED MODE: DEACTIVATED.**\nI am back to being your polite and helpful assistant.")
 
-# ================= TRIGGER INITIAL MESSAGE =================
-@Bot.on_message(filters.command(["chatbot"]) & filters.chat(ALLOWED_GROUP_ID), group=2623)
-async def init_chatbot(bot: Bot, message: Message):
-    await message.reply_text("Hey, reply to this message to chat.")
-
-# ================= HANDLE CONVERSATION REPLIES =================
-@Bot.on_message(filters.reply & filters.chat(ALLOWED_GROUP_ID), group=2657)
-async def handle_chatbot_reply(bot: Bot, message: Message):
-    if not message.reply_to_message or not message.reply_to_message.from_user:
-        return
-        
-    if not message.reply_to_message.from_user.is_self:
-        return
-        
+# ================= SMART CHAT HANDLER (REPLACES /CHATBOT & REPLY HANDLER) =================
+@Bot.on_message((filters.text | filters.caption) & filters.chat(ALLOWED_GROUP_ID) & ~filters.bot, group=2657)
+async def handle_lexica_chat(bot: Bot, message: Message):
     user_text = message.text or message.caption
-    if not user_text:
+    
+    # 1. Check if the user is directly replying to the bot
+    is_reply_to_bot = (
+        message.reply_to_message 
+        and message.reply_to_message.from_user 
+        and message.reply_to_message.from_user.is_self
+    )
+    
+    # 2. Check if the user mentioned the bot by name (case-insensitive)
+    mentions_lexica = "lexica" in user_text.lower()
+    
+    # If neither condition is met, ignore the message
+    if not (is_reply_to_bot or mentions_lexica):
         return
 
     await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
@@ -166,4 +168,4 @@ async def handle_chatbot_reply(bot: Bot, message: Message):
         await message.reply_text(ai_response, parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         print(f"Chatbot crash: {e}")
-        await message.reply_text("I'm too unhinged to process that right now. You broke me.")
+        await message.reply_text("Yaar, mera dimag thoda hang ho gaya. Wapas try kar. 😵‍💫")
