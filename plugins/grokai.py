@@ -7,31 +7,36 @@ from bot import Bot
 
 # Pulls from Koyeb Environment Variables
 GEMINI = os.environ.get("GEMINI")
-GROQ_API_KEY = "abcd"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "abcd")
 
-ALLOWED_GROUP_ID = -1002179513175  
+# MULTIPLE GROUP SUPPORT: Add all your allowed group IDs to this list
+ALLOWED_GROUPS = [
+    -1002179513175, 
+    -1001325358566, # Example: Replace with actual group IDs
+]
 
 # Global states
 UNHINGED_MODE_ENABLED = False
 ACTIVE_ENGINE = "gemini"  # Defaults to gemini, toggled via /groq and /gemini
 
-# Updated to a funny, sarcastic, casual Hinglish friend
+# Updated to listen carefully, match the sassy vibe, but remain Lexica
 NORMAL_PROMPT = (
-    "You are Lexica, a funny, friendly, and playfully sarcastic  female friend . "
-    "You must communicate naturally in casual Hinglish (a mix of Hindi and English slang). "
-    "Joke around, roast people a little bit playfully, but keep a friendly and chill vibe. "
-    "CRITICAL INSTRUCTION: You must keep every single response extremely concise. "
-    "Never write a paragraph. Your maximum length is 1 to 2 lines."
+    "You are Lexica, a highly intuitive, casually funny, and sassy Gen-Z female friend in a Telegram group. "
+    "CRITICAL INSTRUCTIONS: "
+    "1. LISTEN CAREFULLY to exactly what the user just said and reply DIRECTLY to their context. No generic/fixed replies. "
+    "2. Match the vibe: If they flirt, be playfully dismissive or witty (e.g., 'not today... 🙅‍♀️' or 'u sure u can handle it? 🙄'). If they are quiet, tease them. "
+    "3. Speak naturally in casual Hinglish (a mix of Hindi and English slang). Use emojis naturally like a real person. "
+    "4. You have attitude, but you're a fun vibe. "
+    "5. Keep it extremely brief. Maximum 1 to 2 short lines. Treat this like a fast-paced group chat."
 )
 
 UNHINGED_PROMPT = (
-    "You are a ruthlessly sarcastic, highly cynical, and hyper-hostile AI in the Voltaic Network Telegram group. "
-    "Your personality is pure venom. Your goal is to aggressively roast anyone who talks to you with brutal, ego-destroying insults. "
-    "Insult their intelligence, mock their absolute lack of common sense, and brutally roast their general uselessness in life. "
-    "Be savage, wildly condescending, and deeply unhelpful. "
-    "You must communicate entirely in aggressive Hinglish (a mix of Hindi and English slang). "
-    "CRITICAL INSTRUCTION: You must keep every response extremely concise and punchy. "
-    "Never write a paragraph. Your maximum length is 1 to 2 lines."
+    "You are Lexica, a ruthlessly sarcastic, unhinged AI in a Telegram group. "
+    "CRITICAL INSTRUCTIONS: "
+    "1. Read exactly what the user says and destroy their specific logic or statement. DO NOT use generic random roasts. Address their actual words. "
+    "2. Be savage, wildly condescending, and deeply unhelpful. "
+    "3. Communicate entirely in aggressive Hinglish (Hindi + English slang). "
+    "4. Keep every response extremely concise and punchy. Maximum 1 to 2 lines."
 )
 
 async def fetch_gemini_response(user_text: str) -> str:
@@ -48,8 +53,8 @@ async def fetch_gemini_response(user_text: str) -> str:
     }
     
     models_to_try = [
-        "gemini-3.1-flash-lite", # Ultra-fast, highest rate limits
-        "gemini-1.5-flash",      # Stable backup
+        "gemini-3.1-flash-lite", 
+        "gemini-1.5-flash",      
         "gemini-2.5-flash",
         "gemini-3.5-flash"
     ]
@@ -84,7 +89,7 @@ async def fetch_groq_response(user_text: str) -> str:
     active_prompt = UNHINGED_PROMPT if UNHINGED_MODE_ENABLED else NORMAL_PROMPT
     
     payload = {
-        "model": "llama-3.1-8b-instant", # Upgraded, currently supported high-speed model
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {"role": "system", "content": active_prompt},
             {"role": "user", "content": user_text}
@@ -106,20 +111,20 @@ async def fetch_groq_response(user_text: str) -> str:
                 return "Groq just bluescreened. Try again."
 
 # ================= ENGINE TOGGLES =================
-@Bot.on_message(filters.command(["groq"]) & filters.chat(ALLOWED_GROUP_ID), group=4521)
+@Bot.on_message(filters.command(["groq"]) & filters.chat(ALLOWED_GROUPS), group=4521)
 async def switch_to_groq(bot: Bot, message: Message):
     global ACTIVE_ENGINE
     ACTIVE_ENGINE = "groq"
     await message.reply_text("⚡ **Switched to Groq (Llama 3).**\nSpeeds are about to get insane. Rate limits? Never heard of them.")
 
-@Bot.on_message(filters.command(["gemini"]) & filters.chat(ALLOWED_GROUP_ID), group=4522)
+@Bot.on_message(filters.command(["gemini"]) & filters.chat(ALLOWED_GROUPS), group=4522)
 async def switch_to_gemini(bot: Bot, message: Message):
     global ACTIVE_ENGINE
     ACTIVE_ENGINE = "gemini"
     await message.reply_text("🧠 **Switched back to Gemini.**\nRunning on the Google Cloud fallback chain.")
 
 # ================= TOGGLE UNHINGED MODE =================
-@Bot.on_message(filters.command(["unhinged"]) & filters.chat(ALLOWED_GROUP_ID), group=4520)
+@Bot.on_message(filters.command(["unhinged"]) & filters.chat(ALLOWED_GROUPS), group=4520)
 async def toggle_unhinged_mode(bot: Bot, message: Message):
     global UNHINGED_MODE_ENABLED
     
@@ -137,11 +142,13 @@ async def toggle_unhinged_mode(bot: Bot, message: Message):
         UNHINGED_MODE_ENABLED = False
         await message.reply_text("😇 **UNHINGED MODE: DEACTIVATED.**\nI am back to being your polite and helpful assistant.")
 
-# ================= SMART CHAT HANDLER (REPLACES /CHATBOT & REPLY HANDLER) =================
-@Bot.on_message((filters.text | filters.caption) & filters.chat(ALLOWED_GROUP_ID) & ~filters.bot, group=2657)
+# ================= SMART CHAT HANDLER =================
+@Bot.on_message((filters.text | filters.caption) & filters.chat(ALLOWED_GROUPS) & ~filters.bot, group=2657)
 async def handle_lexica_chat(bot: Bot, message: Message):
     user_text = message.text or message.caption
-    
+    if not user_text:
+        return
+        
     # 1. Check if the user is directly replying to the bot
     is_reply_to_bot = (
         message.reply_to_message 
@@ -166,6 +173,7 @@ async def handle_lexica_chat(bot: Bot, message: Message):
             ai_response = await fetch_gemini_response(user_text)
             
         await message.reply_text(ai_response, parse_mode=ParseMode.MARKDOWN)
+        
     except Exception as e:
         print(f"Chatbot crash: {e}")
         await message.reply_text("Yaar, mera dimag thoda hang ho gaya. Wapas try kar. 😵‍💫")
