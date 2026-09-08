@@ -8,7 +8,7 @@ from pyrogram.types import (
     CallbackQuery
 )
 from pyrogram import filters
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode, ButtonStyle
 
 @Bot.on_callback_query(group=250)
 async def hlpcallback(client: Bot, query: CallbackQuery):
@@ -23,12 +23,13 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("🌀 Module Solution", callback_data="module_solution")
-                        InlineKeyboardButton("🌀 Lecs", callback_data="lectures")
+                        InlineKeyboardButton(text="🌀 Module Solution", callback_data="module_solution", style=ButtonStyle.PRIMARY),
+                        # Changed text to Batch and explicitly used the text= keyword
+                        InlineKeyboardButton(text="🌀 Batch", callback_data="lectures", style=ButtonStyle.PRIMARY)
                     ],
                     [
-                        InlineKeyboardButton("🔙 Back", callback_data="start"), # Assumes 'start' is your home callback
-                        InlineKeyboardButton("❌ Close", callback_data="close")
+                        InlineKeyboardButton(text="🔙 Back", callback_data="start", style=ButtonStyle.SECONDARY),
+                        InlineKeyboardButton(text="❌ Close", callback_data="close", style=ButtonStyle.DANGER)
                     ]
                 ]
             )
@@ -42,8 +43,8 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("🔙 Back", callback_data="help_cb"),
-                        InlineKeyboardButton("❌ Close", callback_data="close")
+                        InlineKeyboardButton(text="🔙 Back", callback_data="help_cb", style=ButtonStyle.SECONDARY),
+                        InlineKeyboardButton(text="❌ Close", callback_data="close", style=ButtonStyle.DANGER)
                     ]
                 ]
             )
