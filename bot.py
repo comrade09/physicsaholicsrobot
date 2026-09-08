@@ -1,5 +1,3 @@
-#(©)Codexbotz
-
 from aiohttp import web
 from plugins.stream import web_server
 
@@ -34,8 +32,9 @@ class Bot(Client):
         )
         self.LOGGER = LOGGER
 
-    async def start(self):
-        await super().start()
+    # Added *args and **kwargs here to catch Kurigram's extra parameters
+    async def start(self, *args, **kwargs):
+        await super().start(*args, **kwargs)
         
         usr_bot_me = await self.get_me()
         self.uptime = datetime.now()
@@ -61,8 +60,9 @@ class Bot(Client):
         await web.TCPSite(app, bind_address, PORT).start()
         self.LOGGER(__name__).info(f"Streaming Web Server running on port {PORT}")
 
-    async def stop(self, *args):
-        await super().stop()
+    # Added **kwargs here as well just to be safe for future Kurigram updates
+    async def stop(self, *args, **kwargs):
+        await super().stop(*args, **kwargs)
         self.LOGGER(__name__).info("Bot stopped.")
 
 if __name__ == "__main__":
