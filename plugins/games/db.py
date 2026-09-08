@@ -3,15 +3,55 @@ games/db.py
 ------------
 Mongo (Motor) layer for the Aura / Karma / Games system.
 
-This reuses your existing Mongo connection. It assumes your main
-database file (the one you already have, with `dbclient` / `database`)
-is importable as `database` -> i.e. `from database import database`.
+This needs your existing Motor `AsyncIOMotorDatabase` object (the one
+your other plugins already use — usually a module-level variable named
+`database`, created with `database = dbclient[DB_NAME]`).
 
-If your file is named differently (e.g. `db.py`, `mongo.py`), just
-change the import line below to match.
+Different bots wire this up differently, so we try the common import
+paths below in order and use whichever one actually resolves to a real
+database object (not a plain Python module). If NONE of them work for
+your project, edit `_import_database()` below and hardcode the one
+import that matches how your OTHER plugins pull in the db object
+(check the top of any working plugin file, e.g. `plugins/core.py`,
+for the exact line it uses).
 """
+import importlib
 import time
-from database import database  # noqa: your existing Motor `database` object
+from types import ModuleType
+
+
+def _import_database():
+    candidates = [
+        ("database.database", "database"),  # database/database.py -> database
+        ("database", "database"),            # flat database.py -> database
+        ("db.database", "database"),         # db/database.py -> database
+        ("database", "db"),                  # flat database.py -> db
+    ]
+    errors = []
+    for module_path, attr in candidates:
+        try:
+            mod = importlib.import_module(module_path)
+            obj = getattr(mod, attr, None)
+        except Exception as e:
+            errors.append(f"  from {module_path} import {attr}  ->  {e!r}")
+            continue
+        # A real Motor database supports item access (db['collection']).
+        # A plain module does NOT — that's the exact bug we're guarding against.
+        if obj is not None and hasattr(obj, "__getitem__") and not isinstance(obj, ModuleType):
+            return obj
+        errors.append(f"  from {module_path} import {attr}  ->  resolved to {type(obj)!r}, not a database")
+
+    raise ImportError(
+        "games/db.py could not find your Mongo database object automatically.\n"
+        "Tried:\n" + "\n".join(errors) + "\n\n"
+        "FIX: open any of your OTHER working plugin files and copy the exact "
+        "import line they use to get the Motor database (it usually looks like "
+        "`from database.database import database` or `from database import database`), "
+        "then paste that as the import in this file, replacing `_import_database()`."
+    )
+
+
+database = _import_database()
 
 # Collections (separate from your existing ones, so nothing collides)
 aura_data = database['aura']                 # per-user GLOBAL aura + game stats
