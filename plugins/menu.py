@@ -24,7 +24,8 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
                 [
                     [
                         InlineKeyboardButton(text="🌀 Module Solution", callback_data="module_solution", style=ButtonStyle.PRIMARY),
-                        InlineKeyboardButton(text="🌀 Batch", callback_data="lectures", style=ButtonStyle.PRIMARY),
+                        InlineKeyboardButton(text="🌀 Batches", callback_data="lectures", style=ButtonStyle.PRIMARY),
+                        InlineKeyboardButton(text="🌀 Games", callback_data="games", style=ButtonStyle.PRIMARY),
                     ],
                     [
                         InlineKeyboardButton(text="🔙 Back", callback_data="start", style=ButtonStyle.PRIMARY),
