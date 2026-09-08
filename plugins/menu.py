@@ -24,11 +24,10 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
                 [
                     [
                         InlineKeyboardButton(text="🌀 Module Solution", callback_data="module_solution", style=ButtonStyle.PRIMARY),
-                        # Changed text to Batch and explicitly used the text= keyword
                         InlineKeyboardButton(text="🌀 Batch", callback_data="lectures", style=ButtonStyle.PRIMARY)
                     ],
                     [
-                        InlineKeyboardButton(text="🔙 Back", callback_data="start", style=ButtonStyle.SECONDARY),
+                        InlineKeyboardButton(text="🔙 Back", callback_data="start", style=ButtonStyle.PRIMARY),
                         InlineKeyboardButton(text="❌ Close", callback_data="close", style=ButtonStyle.DANGER)
                     ]
                 ]
@@ -43,7 +42,7 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton(text="🔙 Back", callback_data="help_cb", style=ButtonStyle.SECONDARY),
+                        InlineKeyboardButton(text="🔙 Back", callback_data="help_cb", style=ButtonStyle.PRIMARY),
                         InlineKeyboardButton(text="❌ Close", callback_data="close", style=ButtonStyle.DANGER)
                     ]
                 ]
