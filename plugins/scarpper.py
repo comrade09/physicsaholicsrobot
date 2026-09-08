@@ -176,11 +176,11 @@ def safe_html(text):
         return ""
     return html.escape(str(text))
 
-async def delete_message_after(message: Message, delay: int):
-    """Background task to delete a message after a given delay to avoid copyright issues."""
+async def delete_message_after(client: Bot, chat_id: int, message_id: int, delay: int):
+    """Background task to delete a message strictly by IDs to ensure it works properly."""
     await asyncio.sleep(delay)
     try:
-        await message.delete()
+        await client.delete_messages(chat_id=chat_id, message_ids=message_id)
     except Exception:
         pass
 
@@ -290,6 +290,8 @@ async def lectures_main_menu(client: Bot, callback_query: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode=ParseMode.HTML
     )
+    # Auto-delete this menu after 5 mins
+    asyncio.create_task(delete_message_after(client, callback_query.message.chat.id, callback_query.message.id, 300))
 
 
 # ==========================================
@@ -331,6 +333,8 @@ async def batches_pagination(client: Bot, callback_query: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode=ParseMode.HTML
     )
+    # Auto-delete this menu after 5 mins
+    asyncio.create_task(delete_message_after(client, callback_query.message.chat.id, callback_query.message.id, 300))
 
 # --- 4. Batch Wise: Teachers in Batch (2 Columns) ---
 @Bot.on_callback_query(filters.regex(r"^bch_([^_]+)_(\d+)_(\d+)$"), group=1003)
@@ -384,6 +388,8 @@ async def show_batch_teachers(client: Bot, callback_query: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode=ParseMode.HTML
     )
+    # Auto-delete this menu after 5 mins
+    asyncio.create_task(delete_message_after(client, callback_query.message.chat.id, callback_query.message.id, 300))
 
 
 # --- 5. Batch Wise: Lectures List ---
@@ -458,7 +464,7 @@ async def show_batch_lectures(client: Bot, callback_query: CallbackQuery):
     )
     
     # Auto-delete this protected message after 5 minutes (300 secs)
-    asyncio.create_task(delete_message_after(protected_msg, 300))
+    asyncio.create_task(delete_message_after(client, protected_msg.chat.id, protected_msg.id, 300))
 
 
 # ==========================================
@@ -507,6 +513,8 @@ async def show_all_teachers_list(client: Bot, callback_query: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode=ParseMode.HTML
     )
+    # Auto-delete this menu after 5 mins
+    asyncio.create_task(delete_message_after(client, callback_query.message.chat.id, callback_query.message.id, 300))
 
 
 # --- 7. Teacher Wise: Lectures for Selected Teacher ---
@@ -577,4 +585,4 @@ async def show_all_teacher_lectures(client: Bot, callback_query: CallbackQuery):
     )
     
     # Auto-delete this protected message after 5 minutes (300 secs)
-    asyncio.create_task(delete_message_after(protected_msg, 300))
+    asyncio.create_task(delete_message_after(client, protected_msg.chat.id, protected_msg.id, 300))
