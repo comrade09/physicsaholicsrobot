@@ -312,14 +312,14 @@ async def batches_pagination(client: Bot, callback_query: CallbackQuery):
         
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"bat_p_{page-1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"bat_p_{page-1}", style=ButtonStyle.SUCCESS))
     if skip + limit < len(batches):
-        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"bat_p_{page+1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"bat_p_{page+1}", style=ButtonStyle.SUCCESS))
         
     if nav_buttons:
         buttons.append(nav_buttons)
         
-    buttons.append([InlineKeyboardButton(text="🔙 Back to Main Menu", callback_data="lectures", style=ButtonStyle.SECONDARY)])
+    buttons.append([InlineKeyboardButton(text="🔙 Back to Main Menu", callback_data="lectures", style=ButtonStyle.SUCCESS)])
 
     await callback_query.message.edit_text(
         text="📚 <b>Select a Batch:</b>",
@@ -363,14 +363,14 @@ async def show_batch_teachers(client: Bot, callback_query: CallbackQuery):
         
     nav_buttons = []
     if tch_p > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p-1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p-1}", style=ButtonStyle.SUCCESS))
     if skip + limit < total_teachers:
-        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p+1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p+1}", style=ButtonStyle.SUCCESS))
         
     if nav_buttons:
         buttons.append(nav_buttons)
         
-    buttons.append([InlineKeyboardButton(text="⬅️ Back to Batches", callback_data=f"bat_p_{bat_p}", style=ButtonStyle.SECONDARY)])
+    buttons.append([InlineKeyboardButton(text="⬅️ Back to Batches", callback_data=f"bat_p_{bat_p}", style=ButtonStyle.SUCCESS)])
     
     batch_name = safe_html(BATCH_MAP.get(batch_id, batch.get("batch_title", batch_id)))
 
@@ -430,15 +430,15 @@ async def show_batch_lectures(client: Bot, callback_query: CallbackQuery):
         
     nav_buttons = []
     if lec_p > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"tch_{batch_id}_{tch_idx}_{bat_p}_{tch_p}_{lec_p-1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"tch_{batch_id}_{tch_idx}_{bat_p}_{tch_p}_{lec_p-1}", style=ButtonStyle.SUCCESS))
     if skip + limit < len(all_lectures):
-        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"tch_{batch_id}_{tch_idx}_{bat_p}_{tch_p}_{lec_p+1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"tch_{batch_id}_{tch_idx}_{bat_p}_{tch_p}_{lec_p+1}", style=ButtonStyle.SUCCESS))
         
     buttons = []
     if nav_buttons:
         buttons.append(nav_buttons)
         
-    buttons.append([InlineKeyboardButton(text="⬅️ Back to Teachers", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p}", style=ButtonStyle.SECONDARY)])
+    buttons.append([InlineKeyboardButton(text="⬅️ Back to Teachers", callback_data=f"bch_{batch_id}_{bat_p}_{tch_p}", style=ButtonStyle.SUCCESS)])
 
     # Protect Content True Workaround: Delete old message and send a new one
     await callback_query.message.delete()
@@ -488,14 +488,14 @@ async def show_all_teachers_list(client: Bot, callback_query: CallbackQuery):
 
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"atp_{page-1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"atp_{page-1}", style=ButtonStyle.SUCCESS))
     if skip + limit < len(unique_teachers):
-        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"atp_{page+1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"atp_{page+1}", style=ButtonStyle.SUCCESS))
         
     if nav_buttons:
         buttons.append(nav_buttons)
         
-    buttons.append([InlineKeyboardButton(text="🔙 Back to Main Menu", callback_data="lectures", style=ButtonStyle.SECONDARY)])
+    buttons.append([InlineKeyboardButton(text="🔙 Back to Main Menu", callback_data="lectures", style=ButtonStyle.SUCCESS)])
 
     await callback_query.message.edit_text(
         text="👨‍🏫 <b>Select a Teacher:</b>\n<i>Showing all teachers across all batches.</i>",
@@ -549,15 +549,15 @@ async def show_all_teacher_lectures(client: Bot, callback_query: CallbackQuery):
             
     nav_buttons = []
     if lec_p > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"atl_{tch_idx}_{atp_page}_{lec_p-1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Prev", callback_data=f"atl_{tch_idx}_{atp_page}_{lec_p-1}", style=ButtonStyle.SUCCESS))
     if skip + limit < len(all_lectures):
-        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"atl_{tch_idx}_{atp_page}_{lec_p+1}", style=ButtonStyle.SECONDARY))
+        nav_buttons.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"atl_{tch_idx}_{atp_page}_{lec_p+1}", style=ButtonStyle.SUCCESS))
         
     buttons = []
     if nav_buttons:
         buttons.append(nav_buttons)
         
-    buttons.append([InlineKeyboardButton(text="⬅️ Back to Teachers", callback_data=f"atp_{atp_page}", style=ButtonStyle.SECONDARY)])
+    buttons.append([InlineKeyboardButton(text="⬅️ Back to Teachers", callback_data=f"atp_{atp_page}", style=ButtonStyle.SUCCESS)])
 
     # Protect Content True Workaround: Delete old message and send a new one
     await callback_query.message.delete()
