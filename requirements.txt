@@ -9,6 +9,7 @@ cloudscraper
 # --- For-Web-Response ------- #
 aiohttp
 pytz
+kurigram
 curl_cffi
 humanize
 requests
