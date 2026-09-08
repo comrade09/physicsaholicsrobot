@@ -307,6 +307,15 @@ async def batches_pagination(client: Bot, callback_query: CallbackQuery):
     if not batches:
         return await callback_query.answer("No batches are currently available.", show_alert=True)
 
+    # --- CUSTOM SORTING LOGIC ---
+    # Create a fast lookup dictionary based on the exact order of BATCH_MAP
+    batch_order_dict = {b_id: index for index, b_id in enumerate(BATCH_MAP.keys())}
+    
+    # Sort the fetched batches using the dictionary. 
+    # If a batch is not in the map, it gets a default index of len(batch_order_dict) pushing it to the end.
+    batches.sort(key=lambda b: batch_order_dict.get(b.get("batch_id"), len(batch_order_dict)))
+    # ----------------------------
+
     limit = 8
     skip = page * limit
     page_batches = batches[skip:skip+limit]
