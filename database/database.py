@@ -29,6 +29,7 @@ async def full_userbase():
 async def del_user(user_id: int):
     await user_data.delete_one({'_id': user_id})
 
+
 # --- TELETHON STRING SESSION FUNCTIONS ---
 
 async def save_session(user_id: int, session_string: str):
