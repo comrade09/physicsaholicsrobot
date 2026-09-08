@@ -23,7 +23,8 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("📚 Module Solution", callback_data="module_solution")
+                        InlineKeyboardButton("🌀 Module Solution", callback_data="module_solution")
+                        InlineKeyboardButton("🌀 Lecs", callback_data="lectures")
                     ],
                     [
                         InlineKeyboardButton("🔙 Back", callback_data="start"), # Assumes 'start' is your home callback
