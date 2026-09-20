@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
+import google.genai as genai
 from pypdf import PdfReader, PdfWriter
 
 from . import prompts, validators
