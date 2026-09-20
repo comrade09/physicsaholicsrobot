@@ -3,7 +3,13 @@ import asyncio
 import humanize
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.types import (
+    Message,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery,
+    LinkPreviewOptions,
+)
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 
 from bot import Bot
@@ -124,7 +130,7 @@ async def start_command(client: Client, message: Message):
                 id = message.from_user.id
             ),
             reply_markup = reply_markup,
-            disable_web_page_preview = False,
+            link_preview_options = LinkPreviewOptions(is_disabled=False),
             quote = True
         )
         return
@@ -171,7 +177,7 @@ async def not_joined(client: Client, message: Message):
             ),
         reply_markup = InlineKeyboardMarkup(buttons),
         quote = True,
-        disable_web_page_preview = True
+        link_preview_options = LinkPreviewOptions(is_disabled=True)
     )
 
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
