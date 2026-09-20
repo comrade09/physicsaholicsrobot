@@ -34,8 +34,8 @@ from pyrogram.types import (
     Message,
 )
 
-import session
-from pdf_to_cbt.gemini_client import GeminiExtractionError, convert_pdfs_to_cbt_html
+from plugins.pdf_to_cbt import session
+from plugins.pdf_to_cbt.gemini_client import GeminiExtractionError, convert_pdfs_to_cbt_html
 
 logger = logging.getLogger(__name__)
 
