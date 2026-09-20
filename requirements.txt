@@ -10,6 +10,7 @@ cloudscraper
 aiohttp
 pytz
 kurigram
+pypdf
 curl_cffi
 humanize
 requests
