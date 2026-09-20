@@ -5,7 +5,8 @@ from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    CallbackQuery
+    CallbackQuery,
+    LinkPreviewOptions
 )
 from pyrogram import filters
 from pyrogram.enums import ParseMode, ButtonStyle
@@ -19,7 +20,7 @@ async def hlpcallback(client: Bot, query: CallbackQuery):
         await query.message.edit_text(
             text="✨ **Here is the menu of the bot, select what you want:**",
             parse_mode=ParseMode.MARKDOWN,
-            disable_web_page_preview=True,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
