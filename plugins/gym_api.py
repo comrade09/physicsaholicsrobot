@@ -30,7 +30,13 @@ from aiohttp import web
 
 import database.database as db
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+try:
+    # Matches this project's existing config pattern (see database.py's
+    # `from config import DB_URI, DB_NAME`). Adjust the imported name if
+    # your config.py calls the bot token something else.
+    from config import TG_BOT_TOKEN as BOT_TOKEN
+except ImportError:
+    BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 INIT_DATA_MAX_AGE = 86400  # seconds; reject stale initData (Telegram recommends this)
 
 gym_routes = web.RouteTableDef()
