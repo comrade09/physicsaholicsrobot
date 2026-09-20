@@ -5,6 +5,7 @@ Pyromod==1.5
 # --- For-Database ------------ #
 pymongo
 dnspython
+aiohttp-cors
 cloudscraper
 # --- For-Web-Response ------- #
 aiohttp
