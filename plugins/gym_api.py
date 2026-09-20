@@ -28,7 +28,7 @@ from urllib.parse import parse_qsl
 
 from aiohttp import web
 
-import database as db
+import database.database as db
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 INIT_DATA_MAX_AGE = 86400  # seconds; reject stale initData (Telegram recommends this)
