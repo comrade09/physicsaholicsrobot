@@ -7,6 +7,11 @@ when Gemini's output fails validation.
 All blocking network calls are pushed to a worker thread via
 `asyncio.to_thread` so they don't stall Pyrogram's event loop while a
 conversion is in progress.
+
+Written against the `google-genai` SDK (the `Client`-based one — see
+https://github.com/googleapis/python-genai). If you're on the older
+`google-generativeai` SDK instead, use `genai.configure(...)` +
+`genai.GenerativeModel(...)` as before rather than this file.
 """
 
 from __future__ import annotations
@@ -19,10 +24,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import google.genai as genai
+from google import genai
 from pypdf import PdfReader, PdfWriter
 
-from . import prompts, validators
+from plugins.pdf_to_cbt import prompts, validators
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +38,9 @@ BATCH_PAGE_THRESHOLD = 40  # PDFs with more pages than this get batch-processed
 BATCH_SIZE_PAGES = 25
 REQUEST_TIMEOUT_SECONDS = 600
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# The new SDK is Client-based rather than module-configured: create one
+# client and reuse it for every call, instead of genai.configure(...).
+_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
 class GeminiExtractionError(Exception):
@@ -75,17 +82,18 @@ def _split_pdf_into_batches(pdf_path: str, batch_size: int) -> list[str]:
 def _upload_sync(file_path: str) -> Any:
     """Upload a single file to Gemini's File API and return the file handle. Blocking."""
     logger.info("Uploading %s to Gemini File API", file_path)
-    return genai.upload_file(path=file_path)
+    return _client.files.upload(file=file_path)
 
 
 def _call_gemini_sync(system_prompt: str, uploaded_files: list, user_note: str = "") -> str:
     """Make a single blocking Gemini generate_content call with the given files + prompt."""
-    model = genai.GenerativeModel(MODEL_NAME)
     contents: list = [system_prompt] + uploaded_files
     if user_note:
         contents.append(user_note)
-    response = model.generate_content(
-        contents, request_options={"timeout": REQUEST_TIMEOUT_SECONDS}
+    response = _client.models.generate_content(
+        model=MODEL_NAME,
+        contents=contents,
+        config={"http_options": {"timeout": REQUEST_TIMEOUT_SECONDS * 1000}},
     )
     return response.text
 
