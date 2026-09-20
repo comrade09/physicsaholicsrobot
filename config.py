@@ -12,6 +12,8 @@ from logging.handlers import RotatingFileHandler
 #Bot token @Botfather
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 
+GEMINI = os.environ.get("GEMINI_API_KEY", "")
+
 GEMINI = os.environ.get("GEMINI", "")
 
 BOT_USERNM = os.environ.get("BOT_USERNM", "")
