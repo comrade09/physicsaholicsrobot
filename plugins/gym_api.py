@@ -36,6 +36,24 @@ INIT_DATA_MAX_AGE = 86400  # seconds; reject stale initData (Telegram recommends
 gym_routes = web.RouteTableDef()
 gym_static = web.RouteTableDef()
 
+# The mini app is deployed on Vercel — a different origin from this API — so
+# the browser will block requests unless CORS explicitly allows it. Call
+# setup_cors(app, "https://your-project.vercel.app") once, right after
+# app.add_routes(gym_routes), in whatever file builds your aiohttp app.
+# Requires: pip install aiohttp-cors
+def setup_cors(app: web.Application, allowed_origin: str):
+    import aiohttp_cors
+
+    cors = aiohttp_cors.setup(app, defaults={
+        allowed_origin: aiohttp_cors.ResourceOptions(
+            allow_headers="*",
+            allow_methods="*",
+            expose_headers="*",
+        )
+    })
+    for route in list(app.router.routes()):
+        cors.add(route)
+
 WEBAPP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "webapp")
 
 
@@ -188,9 +206,10 @@ async def prs(request: web.Request):
 
 # ---------------------------------------------------------------------------
 # Static file serving for the mini app itself (index.html / app.js / exercises.js)
-# Skip this block if your project already serves static files another way —
-# just point Telegram's Menu Button / inline WebApp button at wherever
-# webapp/index.html ends up being hosted.
+# NOT NEEDED if you're hosting the mini app on Vercel (or any other static
+# host) — Vercel already serves those three files directly, so this block is
+# dead code in that setup. Safe to leave in or delete; just don't register
+# gym_static if you're not using it, to avoid a duplicate route.
 # ---------------------------------------------------------------------------
 
 @gym_static.get("/gym-app/{filename}")
