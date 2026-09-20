@@ -44,7 +44,7 @@ gym_static = web.RouteTableDef()
 
 # The mini app is deployed on Vercel — a different origin from this API — so
 # the browser will block requests unless CORS explicitly allows it. Call
-# setup_cors(app, "https://your-project.vercel.app") once, right after
+# setup_cors(app, "https://gymtrackerwebsite.vercel.app") once, right after
 # app.add_routes(gym_routes), in whatever file builds your aiohttp app.
 # Requires: pip install aiohttp-cors
 def setup_cors(app: web.Application, allowed_origin: str):
