@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 
 from pyrogram import filters
@@ -13,10 +14,17 @@ from bot import Bot
 
 import database.database as db
 
+# Not every Pyrogram build ships filters.web_app_data, so build it ourselves —
+# it just checks that the message carries a web_app_data payload.
+async def _is_web_app_data(_, __, message: Message):
+    return bool(message.web_app_data)
+
+web_app_data_filter = filters.create(_is_web_app_data)
+
 # Pulls from Koyeb Environment Variables — set this to your Vercel deployment,
 # e.g. "https://your-project.vercel.app". Set GYM_WEBAPP_URL as an env var on
 # your bot host rather than editing the default below.
-GYM_WEBAPP_URL = os.environ.get("GYM_WEBAPP_URL", "https://gymtrackerwebsite.vercel.app/")
+GYM_WEBAPP_URL = os.environ.get("GYM_WEBAPP_URL", "https://your-project.vercel.app")
 
 
 def _webapp_button(label: str = "🏋️ Open Iron Log") -> InlineKeyboardMarkup:
@@ -133,9 +141,8 @@ async def gym_level_command(bot: Bot, message: Message):
 # ================= WEB APP DATA — logged from inside the mini app =================
 # If you ever call Telegram.WebApp.sendData(...) from app.js (e.g. a "share to
 # chat" button after a big PR), it arrives here as a normal message.
-@Bot.on_message(filters.web_app_data, group=5357)
+@Bot.on_message(web_app_data_filter, group=5357)
 async def handle_gym_webapp_data(bot: Bot, message: Message):
-    import json
     try:
         payload = json.loads(message.web_app_data.data)
     except (ValueError, AttributeError):
