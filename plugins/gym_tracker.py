@@ -11,11 +11,12 @@ from pyrogram.types import (
 from pyrogram.enums import ParseMode
 from bot import Bot
 
-import database as db
+import database.database as db
 
-# Pulls from Koyeb Environment Variables — set this to wherever webapp/index.html
-# ends up hosted (e.g. the gym_api.py static route: "https://yourapp.koyeb.app/gym-app").
-GYM_WEBAPP_URL = os.environ.get("GYM_WEBAPP_URL", "https://yourapp.koyeb.app/gym-app")
+# Pulls from Koyeb Environment Variables — set this to your Vercel deployment,
+# e.g. "https://your-project.vercel.app". Set GYM_WEBAPP_URL as an env var on
+# your bot host rather than editing the default below.
+GYM_WEBAPP_URL = os.environ.get("GYM_WEBAPP_URL", "https://gymtrackerwebsite.vercel.app/")
 
 
 def _webapp_button(label: str = "🏋️ Open Iron Log") -> InlineKeyboardMarkup:
